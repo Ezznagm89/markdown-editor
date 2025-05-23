@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Markdown Editor - A4 WYSIWYG & Refined Print</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown-light.min.css">
+    <style>
+        :root {
+            --global-code-bg-color: #2d2d2d;
+            --global-code-text-color: #f8f8f2;
+            --a4-margin-top: 15mm;
+            --a4-margin-bottom: 15mm;
+            --a4-margin-horizontal: 15mm;
+            --a4-width: 210mm;
+            --a4-height: 297mm;
+            --a4-screen-preview-content-width: calc(var(--a4-width) - (2 * var(--a4-margin-horizontal)));
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; background-color: #f0f2f5; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; overflow: hidden; }
+        .page-title-header { padding: 10px; text-align: center; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 10px; }
+        .page-title-header h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
+        .controls-area { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; margin-bottom: 10px; padding: 8px 12px; background-color: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .control-group { margin-right: 15px; margin-bottom: 5px; display: flex; align-items: center;}
+        .controls-area label { font-weight: 500; margin-right: 5px; font-size: 0.9em; }
+        .controls-area input[type="file"], .controls-area input[type="color"],
+        .controls-area input[type="number"],
+        .controls-area button { border: 1px solid #ccc; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+        .controls-area input[type="color"] { padding: 2px 4px; height: 30px; width: 50px; }
+        .controls-area input[type="number"] { width: 50px; text-align: right; }
+        .controls-area button { background-color: #007bff; color: white; border-color: #007bff; }
+        .controls-area button:hover { background-color: #0056b3; }
+        #insertImageActualInput { display: none; }
+
+        .main-work-area { display: flex; flex-grow: 1; gap: 5px; min-height: 0; }
+        .pane { display: flex; flex-direction: column; padding: 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+        .input-area { flex-basis: 40%; min-width: 250px; }
+        .output-area { flex-basis: 60%; min-width: 300px; }
+        .splitter { flex-basis: 5px; flex-shrink: 0; flex-grow: 0; background-color: #adb5bd; cursor: col-resize; z-index: 10; align-self: stretch; }
+        .pane h2 { margin-top: 0; margin-bottom: 8px; color: #333; font-size: 1.1em; }
+
+        textarea#markdownInput { width: 100%; flex-grow: 1; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; padding: 8px; overflow-y: auto; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; resize: none; }
+
+        #htmlOutputContainer {
+            width: 100%; flex-grow: 1; box-sizing: border-box; border: 1px solid #ddd;
+            border-radius: 4px; overflow-y: auto;
+            padding: 20px;
+            background-color: #e0e0e0;
+        }
+
+        #htmlOutput.markdown-body {
+            background-color: #fff;
+            width: var(--a4-screen-preview-content-width);
+            min-height: calc(var(--a4-height) - var(--a4-margin-top) - var(--a4-margin-bottom));
+            margin-left: auto;
+            margin-right: auto;
+            padding-top: var(--a4-margin-top);
+            padding-bottom: var(--a4-margin-bottom);
+            padding-left: var(--a4-margin-horizontal);
+            padding-right: var(--a4-margin-horizontal);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #ccc;
+            font-size: 10pt; line-height: 1.3; color: #000;
+            transition: outline 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        #htmlOutput.markdown-body.direct-edits-active {
+            outline: 3px solid orange;
+        }
+
+
+        #htmlOutput.markdown-body img { max-width: 100%; height: auto; display: block; margin: 0.5em 0; }
+        #htmlOutputContainer[dir="rtl"] .markdown-body { text-align: right; }
+        #htmlOutputContainer[dir="ltr"] .markdown-body { text-align: left; }
+
+        .markdown-body p, .markdown-body li, .markdown-body div, .markdown-body span,
+        .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6,
+        .markdown-body blockquote, .markdown-body td, .markdown-body th { unicode-bidi: isolate; }
+
+        .markdown-body pre {
+            background-color: var(--global-code-bg-color); color: var(--global-code-text-color);
+            padding: 0.8em; border-radius: 5px; border: 1px solid #444;
+            font-size: 0.9em; cursor: pointer; transition: box-shadow 0.2s ease-in-out;
+            white-space: pre-wrap; word-break: break-all; overflow-x: hidden;
+        }
+        .markdown-body pre.selected-code-block { box-shadow: 0 0 0 3px #007bff; }
+        .markdown-body code:not(pre code) { font-family: "SFMono-Regular", Consolas, Menlo, Courier, monospace; font-size: 0.85em; background-color: #f0f0f0; padding: 0.15em 0.3em; border-radius: 3px; }
+        .markdown-body pre code { background-color: transparent; padding: 0; font-size: 1em; color: inherit; }
+        .print-only-date { display: none; font-size: 9pt; color: #555; text-align: right; margin-bottom: 5mm; } /* Screen default */
+
+        @page {
+            size: A4 portrait;
+            margin-top: var(--a4-margin-top);
+            margin-bottom: var(--a4-margin-bottom);
+            margin-left: var(--a4-margin-horizontal);
+            margin-right: var(--a4-margin-horizontal);
+
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-size: 9pt;
+                color: #555;
+            }
+        }
+
+@media print {
+        * {
+            box-sizing: border-box !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            transition: none !important;
+            box-shadow: none !important;
+        }
+        html, body { width: 100%; height: auto; margin: 0 !important; padding: 0 !important; background-color: #fff !important; overflow: visible !important; }
+
+        .page-title-header, .controls-area, .input-area, .splitter, #outputPane > h2 { display: none !important; }
+
+        #htmlOutputContainer {
+            display: block !important; width: 100% !important; height: auto !important; min-height: 0 !important;
+            overflow: visible !important; border: none !important; padding: 0 !important; margin: 0 !important;
+            background-color: #fff !important;
+        }
+
+        #htmlOutput.markdown-body {
+            padding: 0 !important; 
+            font-size: 10pt !important; line-height: 1.3 !important; color: #000 !important;
+            background-color: #fff !important; width: 100% !important; height: auto !important; overflow: visible !important; min-height: 0 !important;
+            background-image: none !important;
+            outline: none !important; 
+        }
+        #htmlOutput.markdown-body img { max-width: 100% !important; height: auto !important; page-break-inside: avoid; display: block; margin: 0.5em 0; }
+
+        h1, h2, h3, h4, h5, h6 {
+            page-break-inside: avoid;
+            page-break-after: avoid;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+        h1 { margin-top: 0; } /* Make sure first H1 in markdown content has no extra top margin */
+
+        p, li {
+            widows: 3;
+            orphans: 3;
+            page-break-inside: auto;
+        }
+
+        ul, ol, blockquote {
+             page-break-inside: auto;
+        }
+        figure {
+            page-break-inside: avoid;
+        }
+
+        .markdown-body pre {
+            page-break-inside: auto !important;
+            border: 1px solid #bbb !important;
+            padding: 0.5em !important;
+            white-space: pre-wrap !important;
+            word-break: break-all !important;
+            overflow: visible !important;
+        }
+
+        .markdown-body code:not(pre code) { background-color: #e9ecef !important; color: #212529 !important; padding: 0.1em 0.25em !important; font-size: 0.85em !important; word-break: break-all; }
+        .markdown-body pre code { background-color: transparent !important; color: inherit !important; padding: 0 !important; font-size: 1em !important; }
+
+        .print-only-date { 
+            display: block !important; 
+            font-size: 9pt; 
+            color: #555; 
+            text-align: right; 
+            margin-bottom: 1mm; /* MODIFIED: Reduced space below date for print */
+        }
+        #htmlOutputContainer[dir="rtl"] .markdown-body { text-align: right; }
+        #htmlOutputContainer[dir="ltr"] .markdown-body { text-align: left; }
+
+        table { page-break-inside: auto; width: 100% !important; border-collapse: collapse !important; margin-bottom: 1em; }
+        thead { display: table-header-group; }
+        tbody { display: table-row-group; }
+        tr { page-break-inside: avoid; }
+        th, td { border: 1px solid #ccc !important; padding: 0.3em 0.5em !important; word-break: break-word !important; page-break-inside: avoid; }
+    }
+</style>
+</head>
+<body>
+    <header class="page-title-header"><h1>Interactive Markdown Editor</h1></header>
+    <div class="controls-area">
+        <div class="control-group"><label for="fileInput">Load file:</label><input type="file" id="fileInput" accept=".txt,.md,.markdown"></div>
+        <!-- <<< MODIFIED CONTROL GROUP FOR CODE BG >>> -->
+        <div class="control-group">
+            <label for="codeBgColorPicker">Code BG:</label>
+            <input type="color" id="codeBgColorPicker" value="#2d2d2d">
+            <button id="applyBgToAllCodeButton" title="Apply current background color to all code blocks" style="margin-left: 5px;">Apply to All</button>
+        </div>
+        <!-- <<< END OF MODIFIED CONTROL GROUP >>> -->
+        <div class="control-group">
+            <label for="marginTopInput">Top Margin (mm):</label>
+            <input type="number" id="marginTopInput" value="15" min="0" max="50" step="1">
+        </div>
+        <div class="control-group">
+            <label for="marginBottomInput">Bottom Margin (mm):</label>
+            <input type="number" id="marginBottomInput" value="15" min="0" max="50" step="1">
+        </div>
+        <div class="control-group">
+            <label for="marginHorizontalInput">H-Margin (mm):</label>
+            <input type="number" id="marginHorizontalInput" value="15" min="0" max="50" step="1">
+        </div>
+        <div class="control-group"><label for="insertImageButton">Image:</label><button id="insertImageButton">Insert Image</button><input type="file" id="insertImageActualInput" accept="image/*"></div>
+        <div class="control-group"><label for="toggleDirButton">Direction:</label><button id="toggleDirButton">Toggle LTR/RTL</button></div>
+        <div class="control-group"><label for="printButton">Print:</label><button id="printButton">Print / Save as PDF</button></div>
+        <div class="control-group"><label for="clearMarkdownBtn">Clear:</label><button id="clearMarkdownBtn">Clear Input</button></div>
+    </div>
+    <div class="main-work-area">
+        <div class="pane input-area" id="inputPane"><h2>Input:</h2><textarea id="markdownInput" placeholder="Paste Markdown..."></textarea></div>
+        <div class="splitter" id="splitter"></div>
+        <div class="pane output-area" id="outputPane">
+            <h2>Output (Editable A4 Preview):</h2>
+            <div id="htmlOutputContainer" dir="ltr">
+                <div class="print-only-date" id="printDate"></div>
+                <div id="htmlOutput" class="markdown-body" contenteditable="true"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- CONSTANTS & DEFAULTS ---
+    const DEFAULT_CODE_BG_COLOR = '#2d2d2d';
+    const DEFAULT_CODE_TEXT_COLOR = '#f8f8f2';
+    const DEFAULT_MARGIN_TOP_MM = 15;
+    const DEFAULT_MARGIN_BOTTOM_MM = 15;
+    const DEFAULT_MARGIN_HORIZONTAL_MM = 15;
+    const LOCAL_STORAGE_KEY = 'markdownEditorContent';
+    const LOCAL_STORAGE_MARGIN_TOP_KEY = 'markdownEditorMarginTop';
+    const LOCAL_STORAGE_MARGIN_BOTTOM_KEY = 'markdownEditorMarginBottom';
+    const LOCAL_STORAGE_MARGIN_H_KEY = 'markdownEditorMarginH';
+    const DEBOUNCE_DELAY = 250;
+    const MIN_PANE_WIDTH = 150;
+
+    let isDraggingSplitter = false;
+    let selectedCodeBlock = null;
+    let savedSelection = null;
+    let isFirstAppInitialization = true;
+    let savedOutputScrollTop = 0;
+
+    let directHtmlEditsMade = false;
+    let isRenderingInternally = false; 
+
+    let markdownInput, htmlOutput, htmlOutputContainer, codeBgColorPicker, fileInput, printButton,
+        printDateElem, toggleDirButton, insertImageButton, insertImageActualInput, clearMarkdownBtn,
+        inputPane, outputPane, splitter,
+        marginTopInput, marginBottomInput, marginHorizontalInput, htmlOutputObserver,
+        applyBgToAllCodeButton; // <<< NEW VARIABLE for the "Apply to All" button
+
+    // --- UTILITY FUNCTIONS ---
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+    function rgbToHex(rgb) {
+        if (!rgb || typeof rgb !== 'string' || rgb.startsWith('#')) return rgb;
+        let sep = rgb.indexOf(",") > -1 ? "," : " ";
+        let parts = rgb.substring(rgb.indexOf('(') + 1, rgb.lastIndexOf(')')).split(sep);
+        if (parts.length < 3) return codeBgColorPicker ? codeBgColorPicker.value : DEFAULT_CODE_BG_COLOR;
+        let r = (+parts[0].trim()).toString(16), g = (+parts[1].trim()).toString(16), b = (+parts[2].trim()).toString(16);
+        if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b;
+        return "#" + r + g + b;
+    }
+    function getFormattedDateYYYYMMDD() {
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    function isColorLight(hexColor) {
+        if (!hexColor || typeof hexColor !== 'string') return false;
+        const color = (hexColor.charAt(0) === '#') ? hexColor.substring(1, 7) : hexColor;
+        if (color.length !== 6) return false;
+        const r = parseInt(color.substring(0, 2), 16);
+        const g = parseInt(color.substring(2, 4), 16);
+        const b = parseInt(color.substring(4, 6), 16);
+        const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
+        return hsp > 127.5;
+    }
+
+    // --- CORE APPLICATION LOGIC & EVENT SETUP ---
+    function initializeApp(options = { renderMd: true, forceLoadFromStorage: false, restoreScroll: false }) {
+        markdownInput = document.getElementById('markdownInput');
+        htmlOutput = document.getElementById('htmlOutput');
+        htmlOutputContainer = document.getElementById('htmlOutputContainer');
+        codeBgColorPicker = document.getElementById('codeBgColorPicker');
+        fileInput = document.getElementById('fileInput');
+        printButton = document.getElementById('printButton');
+        printDateElem = document.getElementById('printDate'); // This is the template in the main DOM
+        toggleDirButton = document.getElementById('toggleDirButton');
+        insertImageButton = document.getElementById('insertImageButton');
+        insertImageActualInput = document.getElementById('insertImageActualInput');
+        clearMarkdownBtn = document.getElementById('clearMarkdownBtn');
+        inputPane = document.getElementById('inputPane');
+        outputPane = document.getElementById('outputPane');
+        splitter = document.getElementById('splitter');
+        marginTopInput = document.getElementById('marginTopInput');
+        marginBottomInput = document.getElementById('marginBottomInput');
+        marginHorizontalInput = document.getElementById('marginHorizontalInput');
+        applyBgToAllCodeButton = document.getElementById('applyBgToAllCodeButton'); // <<< NEW: Get reference to the button
+
+        if (selectedCodeBlock && !document.body.contains(selectedCodeBlock)) selectedCodeBlock = null;
+
+        if (codeBgColorPicker) {
+            const initialGlobalBg = getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim() || DEFAULT_CODE_BG_COLOR;
+            const initialGlobalText = getComputedStyle(document.documentElement).getPropertyValue('--global-code-text-color').trim() || DEFAULT_CODE_TEXT_COLOR;
+            codeBgColorPicker.value = rgbToHex(initialGlobalBg);
+            document.documentElement.style.setProperty('--global-code-bg-color', codeBgColorPicker.value);
+            document.documentElement.style.setProperty('--global-code-text-color', initialGlobalText);
+        } else {
+            document.documentElement.style.setProperty('--global-code-bg-color', DEFAULT_CODE_BG_COLOR);
+            document.documentElement.style.setProperty('--global-code-text-color', DEFAULT_CODE_TEXT_COLOR);
+        }
+
+        if (marginTopInput && marginBottomInput && marginHorizontalInput) {
+            const savedMarginTop = localStorage.getItem(LOCAL_STORAGE_MARGIN_TOP_KEY);
+            const savedMarginBottom = localStorage.getItem(LOCAL_STORAGE_MARGIN_BOTTOM_KEY);
+            const savedMarginH = localStorage.getItem(LOCAL_STORAGE_MARGIN_H_KEY);
+
+            const initialMarginTop = savedMarginTop ? parseFloat(savedMarginTop) : DEFAULT_MARGIN_TOP_MM;
+            const initialMarginBottom = savedMarginBottom ? parseFloat(savedMarginBottom) : DEFAULT_MARGIN_BOTTOM_MM;
+            const initialMarginH = savedMarginH ? parseFloat(savedMarginH) : DEFAULT_MARGIN_HORIZONTAL_MM;
+
+            marginTopInput.value = initialMarginTop;
+            marginBottomInput.value = initialMarginBottom;
+            marginHorizontalInput.value = initialMarginH;
+            updateCssMargins(initialMarginTop, initialMarginBottom, initialMarginH);
+        }
+
+        marked.setOptions({ gfm: true, breaks: true, sanitize: false, smartypants: true });
+
+        if (options.renderMd) {
+            if ((isFirstAppInitialization || options.forceLoadFromStorage) && markdownInput) {
+                loadFromLocalStorage();
+            }
+            renderMarkdown(); 
+        }
+
+        isFirstAppInitialization = false;
+        updatePrintDateContent(); // Update content of the date element
+        attachEventListeners(); 
+
+        if (options.restoreScroll && htmlOutputContainer) {
+            requestAnimationFrame(() => {
+                 htmlOutputContainer.scrollTop = savedOutputScrollTop;
+            });
+        }
+    }
+
+    function setupHtmlOutputObserver() {
+        if (htmlOutputObserver) htmlOutputObserver.disconnect(); 
+
+        htmlOutputObserver = new MutationObserver((mutationsList) => {
+            if (isRenderingInternally) {
+                return; 
+            }
+            for (const mutation of mutationsList) {
+                if (mutation.type === 'childList' || mutation.type === 'characterData' || 
+                    (mutation.type === 'attributes' && mutation.attributeName !== 'class')) { 
+                    if (!directHtmlEditsMade) {
+                        directHtmlEditsMade = true;
+                        if(htmlOutput) htmlOutput.classList.add('direct-edits-active');
+                    }
+                    break; 
+                }
+            }
+        });
+        if (htmlOutput) {
+            htmlOutputObserver.observe(htmlOutput, {
+                childList: true,
+                subtree: true,
+                characterData: true,
+                attributes: true,
+                attributeOldValue: false 
+            });
+        }
+    }
+
+
+    function attachEventListeners() {
+        if (markdownInput) { markdownInput.removeEventListener('input', handleMarkdownInput); markdownInput.addEventListener('input', handleMarkdownInput); }
+        if (htmlOutput) {
+            htmlOutput.removeEventListener('focus', handleHtmlOutputFocus); htmlOutput.addEventListener('focus', handleHtmlOutputFocus);
+            htmlOutput.removeEventListener('blur', handleHtmlOutputBlur); htmlOutput.addEventListener('blur', handleHtmlOutputBlur);
+            htmlOutput.removeEventListener('click', handleHtmlOutputClick); htmlOutput.addEventListener('click', handleHtmlOutputClick);
+            setupHtmlOutputObserver(); 
+        }
+        if (insertImageButton) { insertImageButton.removeEventListener('click', handleInsertImageButtonClick); insertImageButton.addEventListener('click', handleInsertImageButtonClick); }
+        if (insertImageActualInput) { insertImageActualInput.removeEventListener('change', handleInsertImageActualInputChange); insertImageActualInput.addEventListener('change', handleInsertImageActualInputChange); }
+        if (fileInput) { fileInput.removeEventListener('change', handleFileInputChange); fileInput.addEventListener('change', handleFileInputChange); }
+        if (printButton) { printButton.removeEventListener('click', handlePrintButtonClick); printButton.addEventListener('click', handlePrintButtonClick); }
+        if (codeBgColorPicker) { codeBgColorPicker.removeEventListener('input', handleCodeBgColorPickerInput); codeBgColorPicker.addEventListener('input', handleCodeBgColorPickerInput); }
+        
+        // <<< NEW: Add event listener for the "Apply BG to All Code" button >>>
+        if (applyBgToAllCodeButton) { applyBgToAllCodeButton.removeEventListener('click', handleApplyBgToAllCodeButtonClick); applyBgToAllCodeButton.addEventListener('click', handleApplyBgToAllCodeButtonClick); }
+        
+        if (toggleDirButton) { toggleDirButton.removeEventListener('click', handleToggleDirButtonClick); toggleDirButton.addEventListener('click', handleToggleDirButtonClick); }
+        if (clearMarkdownBtn) { clearMarkdownBtn.removeEventListener('click', handleClearMarkdownBtnClick); clearMarkdownBtn.addEventListener('click', handleClearMarkdownBtnClick); }
+        
+        if (marginTopInput) { marginTopInput.removeEventListener('input', handleMarginChange); marginTopInput.addEventListener('input', handleMarginChange); }
+        if (marginBottomInput) { marginBottomInput.removeEventListener('input', handleMarginChange); marginBottomInput.addEventListener('input', handleMarginChange); }
+        if (marginHorizontalInput) { marginHorizontalInput.removeEventListener('input', handleMarginChange); marginHorizontalInput.addEventListener('input', handleMarginChange); }
+
+        document.removeEventListener('click', handleDocumentClickForCodeBlock);
+        document.addEventListener('click', handleDocumentClickForCodeBlock);
+
+        if (splitter && inputPane && outputPane) {
+            splitter.removeEventListener('mousedown', handleSplitterMouseDown); splitter.addEventListener('mousedown', handleSplitterMouseDown);
+            splitter.removeEventListener('touchstart', handleSplitterTouchStart); splitter.addEventListener('touchstart', handleSplitterTouchStart, { passive: true });
+        }
+    }
+
+    const debouncedActualRenderMarkdown = debounce(renderMarkdown, DEBOUNCE_DELAY);
+    const debouncedSaveToLocalStorage = debounce(saveToLocalStorage, DEBOUNCE_DELAY + 50);
+
+    function handleMarkdownInput() {
+        if (directHtmlEditsMade) {
+            if (!confirm("You've made direct edits to the HTML preview (e.g., inserted an image, styled code, or typed directly).\n\nModifying the Markdown will overwrite these direct HTML changes.\n\nProceed and overwrite HTML edits?")) {
+                return;
+            }
+        }
+        debouncedActualRenderMarkdown();
+        debouncedSaveToLocalStorage();
+    }
+    
+    function handleHtmlOutputFocus() {
+        if (savedSelection && window.getSelection && htmlOutput) {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            try {
+                if (htmlOutput.contains(savedSelection.commonAncestorContainer)) {
+                    sel.addRange(savedSelection);
+                } else { throw new Error("Saved selection context invalid."); }
+            } catch (e) {
+                console.warn("Could not restore saved selection:", e);
+                const range = document.createRange();
+                range.selectNodeContents(htmlOutput);
+                range.collapse(false);
+                if(sel) sel.addRange(range);
+            }
+        }
+    }
+    function handleHtmlOutputBlur() {
+        try {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0 && htmlOutput && htmlOutput.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+                savedSelection = selection.getRangeAt(0).cloneRange();
+            } else { savedSelection = null; }
+        } catch (e) { console.error("Err saving selection:", e); savedSelection = null; }
+    }
+    function handleHtmlOutputClick(event) {
+        const preElement = event.target.closest('pre');
+        if (preElement && htmlOutput && htmlOutput.contains(preElement)) {
+            event.stopPropagation();
+            if (selectedCodeBlock && selectedCodeBlock !== preElement) {
+                selectedCodeBlock.classList.remove('selected-code-block');
+            }
+            selectedCodeBlock = preElement;
+            selectedCodeBlock.classList.add('selected-code-block');
+            if (codeBgColorPicker) {
+                codeBgColorPicker.value = selectedCodeBlock.style.backgroundColor ?
+                    rgbToHex(selectedCodeBlock.style.backgroundColor) :
+                    rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim()) || DEFAULT_CODE_BG_COLOR;
+            }
+        }
+    }
+    function handleInsertImageButtonClick() { if (htmlOutput) htmlOutput.focus(); if (insertImageActualInput) insertImageActualInput.click(); }
+    function handleInsertImageActualInputChange(event) {
+        try {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e_reader) {
+                    try {
+                        const img = document.createElement('img');
+                        img.src = e_reader.target.result; img.alt = file.name;
+                        if (htmlOutput) htmlOutput.focus();
+                        const selection = window.getSelection(); let range;
+                        if (savedSelection && selection && htmlOutput && htmlOutput.contains(savedSelection.commonAncestorContainer)) {
+                            range = savedSelection; selection.removeAllRanges(); selection.addRange(range);
+                        } else if (selection && selection.rangeCount > 0 && htmlOutput && htmlOutput.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+                            range = selection.getRangeAt(0);
+                        } else if (htmlOutput) {
+                            range = document.createRange(); range.selectNodeContents(htmlOutput); range.collapse(false);
+                            if(selection){ selection.removeAllRanges(); selection.addRange(range); }
+                        }
+                        if (range) {
+                            range.deleteContents(); range.insertNode(img); const space = document.createTextNode(" "); img.after(space);
+                            range.setStartAfter(space); range.collapse(true);
+                            if(selection){ selection.removeAllRanges(); selection.addRange(range); }
+                            savedSelection = range.cloneRange();
+                            if (!directHtmlEditsMade) {
+                                directHtmlEditsMade = true;
+                                if(htmlOutput) htmlOutput.classList.add('direct-edits-active');
+                            }
+                        } else if (htmlOutput) { htmlOutput.appendChild(img); htmlOutput.appendChild(document.createTextNode(" ")); }
+                    } catch (innerError) { console.error("Err image node insert:", innerError); alert("Error inserting image."); }
+                };
+                reader.onerror = function(error) { console.error("FileReader err:", error); alert("Error reading image file."); };
+                reader.readAsDataURL(file);
+            } else if (file) { alert("Please select an image file."); }
+        } catch (outerError) { console.error("Err img input change:", outerError); alert("Error processing image selection."); }
+        if (event.target) event.target.value = null; // Clear file input
+    }
+    function handleFileInputChange(event) {
+        const file = event.target.files[0];
+        if (file && markdownInput) {
+            const reader = new FileReader();
+            reader.onload = function(e_reader) {
+                markdownInput.value = e_reader.target.result;
+                directHtmlEditsMade = false;
+                if (htmlOutput) htmlOutput.classList.remove('direct-edits-active');
+                renderMarkdown(); 
+                saveToLocalStorage();
+            };
+            reader.onerror = function(error) {
+                console.error("FileReader error:", error);
+                alert("Error reading file.");
+            };
+            reader.readAsText(file);
+        }
+        if (event.target) event.target.value = null; // Clear file input
+    }
+
+    let originalBodyHTML_print = ''; 
+    let originalBodyClassName_print = '';
+    let originalScrollX_print = 0; 
+    let originalScrollY_print = 0;
+    let originalMarkdownInputValue_print = '';
+
+    function restorePageAfterPrint() {
+        document.body.innerHTML = originalBodyHTML_print;
+        document.body.className = originalBodyClassName_print;
+        window.scrollTo(originalScrollX_print, originalScrollY_print);
+        
+        initializeApp({ renderMd: false, restoreScroll: true }); 
+        
+        if (markdownInput) { 
+             markdownInput.value = originalMarkdownInputValue_print;
+        } else {
+            const restoredMdInput = document.getElementById('markdownInput');
+            if (restoredMdInput) restoredMdInput.value = originalMarkdownInputValue_print;
+        }
+        
+        window.removeEventListener('afterprint', restorePageAfterPrint);
+    }
+
+    function handlePrintButtonClick() {
+        if (selectedCodeBlock) {
+            selectedCodeBlock.classList.remove('selected-code-block'); selectedCodeBlock = null;
+            if (codeBgColorPicker) {
+                const globalBg = rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim()) || DEFAULT_CODE_BG_COLOR;
+                codeBgColorPicker.value = globalBg;
+            }
+        }
+        updatePrintDateContent(); 
+
+        if (htmlOutputContainer) {
+            savedOutputScrollTop = htmlOutputContainer.scrollTop;
+        }
+
+        if (markdownInput) originalMarkdownInputValue_print = markdownInput.value;
+        originalBodyHTML_print = document.body.innerHTML;
+        originalBodyClassName_print = document.body.className;
+        originalScrollX_print = window.scrollX; originalScrollY_print = window.scrollY;
+
+        const printContainerElement = document.getElementById('htmlOutputContainer');
+        const outputContentElement = document.getElementById('htmlOutput');
+        
+        if (!printContainerElement || !outputContentElement || !printDateElem) {
+            console.error("Required elements for printing not found! (Container, Output, or Date Elem)"); 
+            alert("Error preparing content for printing."); 
+            return;
+        }
+
+        const outputContentClone = outputContentElement.cloneNode(true);
+        const dateElemForPrint = printDateElem.cloneNode(true); 
+
+        const tempPrintDiv = document.createElement('div');
+        tempPrintDiv.id = 'htmlOutputContainer'; 
+        tempPrintDiv.setAttribute('dir', printContainerElement.getAttribute('dir'));
+        
+        tempPrintDiv.appendChild(dateElemForPrint);
+        tempPrintDiv.appendChild(outputContentClone);
+        const contentToPrint = tempPrintDiv.outerHTML;
+
+        document.body.innerHTML = contentToPrint;
+        window.addEventListener('afterprint', restorePageAfterPrint);
+        window.print();
+    }
+
+    function handleCodeBgColorPickerInput(e) {
+        const newBgColor = e.target.value;
+        const newTextColor = isColorLight(newBgColor) ? '#212529' : '#f8f8f2';
+        if (selectedCodeBlock) {
+            selectedCodeBlock.style.backgroundColor = newBgColor;
+            selectedCodeBlock.style.color = newTextColor;
+            if (!directHtmlEditsMade) {
+                directHtmlEditsMade = true;
+                if (htmlOutput) htmlOutput.classList.add('direct-edits-active');
+            }
+        } else {
+            document.documentElement.style.setProperty('--global-code-bg-color', newBgColor);
+            document.documentElement.style.setProperty('--global-code-text-color', newTextColor);
+        }
+    }
+
+    // <<< NEW FUNCTION TO HANDLE "APPLY BG TO ALL CODE" BUTTON CLICK >>>
+    function handleApplyBgToAllCodeButtonClick() {
+        if (!codeBgColorPicker || !htmlOutput) {
+            console.warn("Apply BG to All: Color picker or HTML output not found.");
+            return;
+        }
+
+        const newBgColor = codeBgColorPicker.value;
+        const newTextColor = isColorLight(newBgColor) ? '#212529' : '#f8f8f2';
+
+        // 1. Update global CSS variables for future Markdown renders.
+        document.documentElement.style.setProperty('--global-code-bg-color', newBgColor);
+        document.documentElement.style.setProperty('--global-code-text-color', newTextColor);
+
+        // 2. Apply to all existing code blocks (<pre>) in the output.
+        const codeBlocksInOutput = htmlOutput.querySelectorAll('pre');
+        codeBlocksInOutput.forEach(block => {
+            block.style.backgroundColor = newBgColor;
+            block.style.color = newTextColor;
+        });
+
+        // 3. Mark that direct HTML edits were made if any blocks were changed.
+        if (codeBlocksInOutput.length > 0) { 
+            if (!directHtmlEditsMade) {
+                directHtmlEditsMade = true;
+                htmlOutput.classList.add('direct-edits-active');
+            }
+        }
+    }
+    // <<< END OF NEW FUNCTION >>>
+
+    function handleToggleDirButtonClick() {
+        if (!htmlOutputContainer) { console.error("htmlOutputContainer not found for direction toggle."); return; }
+        const currentDir = htmlOutputContainer.getAttribute('dir');
+        htmlOutputContainer.setAttribute('dir', currentDir === 'rtl' ? 'ltr' : 'rtl');
+    }
+    function handleClearMarkdownBtnClick() {
+        if (confirm("Are you sure you want to clear the input and saved content?")) {
+            if (markdownInput) {
+                markdownInput.value = '';
+                directHtmlEditsMade = false; 
+                if (htmlOutput) htmlOutput.classList.remove('direct-edits-active');
+                renderMarkdown(); 
+                saveToLocalStorage(); 
+            }
+        }
+    }
+    function handleDocumentClickForCodeBlock(event) {
+        if (selectedCodeBlock && htmlOutput && htmlOutput.contains(selectedCodeBlock) &&
+            !selectedCodeBlock.contains(event.target) && event.target !== codeBgColorPicker) {
+            selectedCodeBlock.classList.remove('selected-code-block'); selectedCodeBlock = null;
+            if (codeBgColorPicker) {
+                const globalBg = rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim()) || DEFAULT_CODE_BG_COLOR;
+                codeBgColorPicker.value = globalBg;
+            }
+        }
+    }
+
+    function updateCssMargins(topMargin, bottomMargin, hMargin) {
+        if (typeof topMargin === 'number' && typeof bottomMargin === 'number' && typeof hMargin === 'number') {
+            document.documentElement.style.setProperty('--a4-margin-top', `${topMargin}mm`);
+            document.documentElement.style.setProperty('--a4-margin-bottom', `${bottomMargin}mm`);
+            document.documentElement.style.setProperty('--a4-margin-horizontal', `${hMargin}mm`);
+        }
+    }
+    const debouncedUpdateCssMargins = debounce(updateCssMargins, 300);
+
+    function handleMarginChange() {
+        const topMargin = parseFloat(marginTopInput.value);
+        const bottomMargin = parseFloat(marginBottomInput.value);
+        const hMargin = parseFloat(marginHorizontalInput.value);
+
+        if (!isNaN(topMargin) && !isNaN(bottomMargin) && !isNaN(hMargin)) {
+            debouncedUpdateCssMargins(topMargin, bottomMargin, hMargin);
+            localStorage.setItem(LOCAL_STORAGE_MARGIN_TOP_KEY, topMargin);
+            localStorage.setItem(LOCAL_STORAGE_MARGIN_BOTTOM_KEY, bottomMargin);
+            localStorage.setItem(LOCAL_STORAGE_MARGIN_H_KEY, hMargin);
+        }
+    }
+
+    function handleSplitterMove(clientX) {
+        const container = splitter.parentElement;
+        if (!container || !inputPane || !outputPane) return;
+        const containerRect = container.getBoundingClientRect(); const containerWidth = container.offsetWidth;
+        let newLeftWidth = clientX - containerRect.left;
+        const splitterWidth = splitter.offsetWidth;
+        newLeftWidth = Math.max(MIN_PANE_WIDTH, newLeftWidth);
+        newLeftWidth = Math.min(containerWidth - MIN_PANE_WIDTH - splitterWidth, newLeftWidth);
+        const newRightWidth = containerWidth - newLeftWidth - splitterWidth;
+        if(inputPane) inputPane.style.flexBasis = newLeftWidth + 'px';
+        if(outputPane) outputPane.style.flexBasis = newRightWidth + 'px';
+    }
+    function stopSplitterDrag() {
+        if (isDraggingSplitter) {
+            isDraggingSplitter = false; document.body.style.cursor = 'default'; document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', onSplitterMouseMove); document.removeEventListener('mouseup', onSplitterMouseUp);
+            document.removeEventListener('touchmove', onSplitterTouchMove); document.removeEventListener('touchend', onSplitterTouchEnd);
+        }
+    }
+    const onSplitterMouseMove = (e) => handleSplitterMove(e.clientX);
+    const onSplitterMouseUp = () => stopSplitterDrag();
+    const onSplitterTouchMove = (e) => { if (e.touches.length > 0) handleSplitterMove(e.touches[0].clientX); };
+    const onSplitterTouchEnd = () => stopSplitterDrag();
+
+    function handleSplitterMouseDown(e) {
+        e.preventDefault(); isDraggingSplitter = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', onSplitterMouseMove); document.addEventListener('mouseup', onSplitterMouseUp);
+    }
+    function handleSplitterTouchStart(e) {
+        isDraggingSplitter = true; document.body.style.userSelect = 'none';
+        document.addEventListener('touchmove', onSplitterTouchMove, { passive: false });
+        document.addEventListener('touchend', onSplitterTouchEnd);
+    }
+
+    function renderMarkdown() {
+        if (!markdownInput || !htmlOutput) return;
+        
+        isRenderingInternally = true; 
+        try {
+            htmlOutput.innerHTML = marked.parse(markdownInput.value || "");
+            if (htmlOutput.classList.contains('direct-edits-active')) {
+                directHtmlEditsMade = false;
+                htmlOutput.classList.remove('direct-edits-active');
+            }
+        } catch (e) {
+            console.error("Error parsing Markdown:", e);
+            if (htmlOutput) htmlOutput.innerHTML = "<p style='color:red;'>Error rendering Markdown.</p>";
+        } finally {
+            setTimeout(() => {
+                isRenderingInternally = false;
+            }, 0);
+        }
+    }
+    function updatePrintDateContent() { 
+        if (printDateElem) {
+            printDateElem.textContent = getFormattedDateYYYYMMDD(); 
+        }
+    }
+    function loadFromLocalStorage() { 
+        if (markdownInput) { 
+            const saved = localStorage.getItem(LOCAL_STORAGE_KEY); 
+            if (saved) { 
+                markdownInput.value = saved; 
+            } 
+        } 
+    }
+    function saveToLocalStorage() { 
+        if (markdownInput) localStorage.setItem(LOCAL_STORAGE_KEY, markdownInput.value); 
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeApp({ renderMd: true, forceLoadFromStorage: true });
+    });
+</script>
+</body>
+</html>
