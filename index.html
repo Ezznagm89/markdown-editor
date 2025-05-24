@@ -16,20 +16,23 @@
             --a4-width: 210mm;
             --a4-height: 297mm;
             --a4-screen-preview-content-width: calc(var(--a4-width) - (2 * var(--a4-margin-horizontal)));
+            /* Default line spacing for output, can be overridden by inline styles on selected text */
+            --output-line-spacing: 1.3;
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; background-color: #f0f2f5; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; overflow: hidden; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; background-color: #f0f2f5; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; overflow: hidden; /* overflow: hidden helps prevent accidental body scrollbars */ }
         .page-title-header { padding: 10px; text-align: center; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 10px; }
         .page-title-header h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
         .controls-area { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; margin-bottom: 10px; padding: 8px 12px; background-color: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .control-group { margin-right: 15px; margin-bottom: 5px; display: flex; align-items: center;}
         .controls-area label { font-weight: 500; margin-right: 5px; font-size: 0.9em; }
         .controls-area input[type="file"], .controls-area input[type="color"],
-        .controls-area input[type="number"],
+        .controls-area input[type="number"], .controls-area input[type="range"],
         .controls-area button { border: 1px solid #ccc; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
         .controls-area input[type="color"] { padding: 2px 4px; height: 30px; width: 50px; }
         .controls-area input[type="number"] { width: 50px; text-align: right; }
         .controls-area button { background-color: #007bff; color: white; border-color: #007bff; }
         .controls-area button:hover { background-color: #0056b3; }
+        .controls-area button:disabled { background-color: #cccccc; color: #666666; border-color: #cccccc; cursor: not-allowed;}
         #insertImageActualInput { display: none; }
 
         .main-work-area { display: flex; flex-grow: 1; gap: 5px; min-height: 0; }
@@ -39,11 +42,19 @@
         .splitter { flex-basis: 5px; flex-shrink: 0; flex-grow: 0; background-color: #adb5bd; cursor: col-resize; z-index: 10; align-self: stretch; }
         .pane h2 { margin-top: 0; margin-bottom: 8px; color: #333; font-size: 1.1em; }
 
-        textarea#markdownInput { width: 100%; flex-grow: 1; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; padding: 8px; overflow-y: auto; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; resize: none; }
+        textarea#markdownInput {
+            width: 100%; flex-grow: 1; box-sizing: border-box; border: 1px solid #ddd;
+            border-radius: 4px; font-size: 14px; padding: 8px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            resize: vertical;
+            min-height: 100px;
+        }
 
         #htmlOutputContainer {
             width: 100%; flex-grow: 1; box-sizing: border-box; border: 1px solid #ddd;
-            border-radius: 4px; overflow-y: auto;
+            border-radius: 4px;
+            overflow-y: auto;
             padding: 20px;
             background-color: #e0e0e0;
         }
@@ -60,7 +71,9 @@
             padding-right: var(--a4-margin-horizontal);
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border: 1px solid #ccc;
-            font-size: 10pt; line-height: 1.3; color: #000;
+            font-size: 10pt;
+            line-height: var(--output-line-spacing); /* Default line height for content not specifically styled */
+            color: #000;
             transition: outline 0.3s ease, box-shadow 0.3s ease;
         }
 
@@ -68,25 +81,43 @@
             outline: 3px solid orange;
         }
 
-
         #htmlOutput.markdown-body img { max-width: 100%; height: auto; display: block; margin: 0.5em 0; }
         #htmlOutputContainer[dir="rtl"] .markdown-body { text-align: right; }
         #htmlOutputContainer[dir="ltr"] .markdown-body { text-align: left; }
 
-        .markdown-body p, .markdown-body li, .markdown-body div, .markdown-body span,
+        .markdown-body p, .markdown-body li, .markdown-body div,
         .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6,
         .markdown-body blockquote, .markdown-body td, .markdown-body th { unicode-bidi: isolate; }
 
+        /* Code block styling: Apply global vars by default. Inline styles will override. */
         .markdown-body pre {
-            background-color: var(--global-code-bg-color); color: var(--global-code-text-color);
+            background-color: var(--global-code-bg-color);
+            color: var(--global-code-text-color);
             padding: 0.8em; border-radius: 5px; border: 1px solid #444;
             font-size: 0.9em; cursor: pointer; transition: box-shadow 0.2s ease-in-out;
-            white-space: pre-wrap; word-break: break-all; overflow-x: hidden;
+            /* white-space and word-break are handled by fix rules below */
         }
         .markdown-body pre.selected-code-block { box-shadow: 0 0 0 3px #007bff; }
         .markdown-body code:not(pre code) { font-family: "SFMono-Regular", Consolas, Menlo, Courier, monospace; font-size: 0.85em; background-color: #f0f0f0; padding: 0.15em 0.3em; border-radius: 3px; }
         .markdown-body pre code { background-color: transparent; padding: 0; font-size: 1em; color: inherit; }
-        .print-only-date { display: none; font-size: 9pt; color: #555; text-align: right; margin-bottom: 5mm; } /* Screen default */
+        .print-only-date { display: none; font-size: 9pt; color: #555; text-align: right; margin-bottom: 5mm; }
+
+
+        /* 🔥 START CSS FIXES (Maintained from your code, with modifications for line-height/font-size spans) */
+        #htmlOutput.markdown-body,
+        #htmlOutputContainer,
+        #markdownInput {
+            overflow-x: hidden !important;
+            word-wrap: break-word; /* helps prevent overflow with long unbroken strings */
+        }
+
+        .markdown-body pre {
+            white-space: pre-wrap !important; /* Ensures long code lines wrap */
+            word-break: break-all; /* Breaks long words/strings if pre-wrap isn't enough */
+            overflow-x: hidden !important; /* Explicitly hide horizontal scrollbar for pre */
+        }
+        /* 🔥 END CSS FIXES */
+
 
         @page {
             size: A4 portrait;
@@ -122,13 +153,17 @@
         }
 
         #htmlOutput.markdown-body {
-            padding: 0 !important; 
-            font-size: 10pt !important; line-height: 1.3 !important; color: #000 !important;
-            background-color: #fff !important; width: 100% !important; height: auto !important; overflow: visible !important; min-height: 0 !important;
+            padding: 0 !important; /* Margins are handled by @page and body content padding in printDoc */
+            line-height: var(--output-line-spacing) !important; /* Default, inline styles on spans will override */
+            color: #000 !important;
+            background-color: #fff !important; width: 100% !important; /* Width is controlled by printDoc style */
+            height: auto !important; overflow: visible !important; min-height: 0 !important;
             background-image: none !important;
-            outline: none !important; 
+            outline: none !important;
         }
+
         #htmlOutput.markdown-body img { max-width: 100% !important; height: auto !important; page-break-inside: avoid; display: block; margin: 0.5em 0; }
+
 
         h1, h2, h3, h4, h5, h6 {
             page-break-inside: avoid;
@@ -136,7 +171,7 @@
             margin-top: 1.5em;
             margin-bottom: 0.5em;
         }
-        h1 { margin-top: 0; } /* Make sure first H1 in markdown content has no extra top margin */
+        h1 { margin-top: 0; }
 
         p, li {
             widows: 3;
@@ -153,22 +188,25 @@
 
         .markdown-body pre {
             page-break-inside: auto !important;
-            border: 1px solid #bbb !important;
-            padding: 0.5em !important;
             white-space: pre-wrap !important;
             word-break: break-all !important;
-            overflow: visible !important;
+            overflow: visible !important; /* Allow content to flow naturally for print */
+            background-color: var(--global-code-bg-color) !important;
+            color: var(--global-code-text-color) !important;
+            border: 1px solid #444 !important;
+            padding: 0.8em !important;
+            border-radius: 5px !important;
         }
 
         .markdown-body code:not(pre code) { background-color: #e9ecef !important; color: #212529 !important; padding: 0.1em 0.25em !important; font-size: 0.85em !important; word-break: break-all; }
         .markdown-body pre code { background-color: transparent !important; color: inherit !important; padding: 0 !important; font-size: 1em !important; }
 
-        .print-only-date { 
-            display: block !important; 
-            font-size: 9pt; 
-            color: #555; 
-            text-align: right; 
-            margin-bottom: 1mm; /* MODIFIED: Reduced space below date for print */
+        .print-only-date {
+            display: block !important;
+            font-size: 9pt;
+            color: #555;
+            text-align: right;
+            margin-bottom: 1mm;
         }
         #htmlOutputContainer[dir="rtl"] .markdown-body { text-align: right; }
         #htmlOutputContainer[dir="ltr"] .markdown-body { text-align: left; }
@@ -185,13 +223,11 @@
     <header class="page-title-header"><h1>Interactive Markdown Editor made by Ezz Eldien </h1></header>
     <div class="controls-area">
         <div class="control-group"><label for="fileInput">Load file:</label><input type="file" id="fileInput" accept=".txt,.md,.markdown"></div>
-        <!-- <<< MODIFIED CONTROL GROUP FOR CODE BG >>> -->
         <div class="control-group">
             <label for="codeBgColorPicker">Code BG:</label>
             <input type="color" id="codeBgColorPicker" value="#2d2d2d">
             <button id="applyBgToAllCodeButton" title="Apply current background color to all code blocks" style="margin-left: 5px;">Apply to All</button>
         </div>
-        <!-- <<< END OF MODIFIED CONTROL GROUP >>> -->
         <div class="control-group">
             <label for="marginTopInput">Top Margin (mm):</label>
             <input type="number" id="marginTopInput" value="15" min="0" max="50" step="1">
@@ -204,10 +240,32 @@
             <label for="marginHorizontalInput">H-Margin (mm):</label>
             <input type="number" id="marginHorizontalInput" value="15" min="0" max="50" step="1">
         </div>
+
+        <div class="control-group">
+            <label for="fontSizeSlider">Sel. Size:</label>
+            <button id="decreaseFontSizeBtn" title="Decrease font size">-</button>
+            <input type="range" id="fontSizeSlider" min="8" max="72" value="16" style="width: 80px; margin: 0 5px;">
+            <button id="increaseFontSizeBtn" title="Increase font size">+</button>
+            <span id="fontSizeValueSpan" style="margin-left: 5px; min-width: 30px; text-align: right;">16px</span>
+            <button id="applyFontSizeBtn" title="Apply size to selected text" style="margin-left: 10px;">Apply</button>
+        </div>
+
+        <div class="control-group">
+            <label for="outputLineSpacingInput">Sel. Line Spacing:</label>
+            <input type="number" id="outputLineSpacingInput" value="1.3" min="0.5" max="4" step="0.1" style="width: 50px;" title="Line spacing for selected text">
+            <button id="applyLineSpacingBtn" title="Apply line spacing to selected text" style="margin-left: 10px;">Apply LS</button>
+        </div>
+
         <div class="control-group"><label for="insertImageButton">Image:</label><button id="insertImageButton">Insert Image</button><input type="file" id="insertImageActualInput" accept="image/*"></div>
         <div class="control-group"><label for="toggleDirButton">Direction:</label><button id="toggleDirButton">Toggle LTR/RTL</button></div>
+
+        <div class="control-group">
+            <button id="undoBtn" title="Undo (Ctrl+Z)">Undo</button>
+            <button id="redoBtn" title="Redo (Ctrl+Y or Ctrl+Shift+Z)">Redo</button>
+        </div>
+
         <div class="control-group"><label for="printButton">Print:</label><button id="printButton">Print / Save as PDF</button></div>
-        <div class="control-group"><label for="clearMarkdownBtn">Clear:</label><button id="clearMarkdownBtn">Clear Input</button></div>
+        <div class="control-group"><label for="clearMarkdownBtn">Clear:</label><button id="clearMarkdownBtn">Clear All & Reset</button></div>
     </div>
     <div class="main-work-area">
         <div class="pane input-area" id="inputPane"><h2>Input:</h2><textarea id="markdownInput" placeholder="Paste Markdown..."></textarea></div>
@@ -228,12 +286,14 @@
     const DEFAULT_MARGIN_TOP_MM = 15;
     const DEFAULT_MARGIN_BOTTOM_MM = 15;
     const DEFAULT_MARGIN_HORIZONTAL_MM = 15;
+    const DEFAULT_OUTPUT_LINE_SPACING = 1.3;
     const LOCAL_STORAGE_KEY = 'markdownEditorContent';
     const LOCAL_STORAGE_MARGIN_TOP_KEY = 'markdownEditorMarginTop';
     const LOCAL_STORAGE_MARGIN_BOTTOM_KEY = 'markdownEditorMarginBottom';
     const LOCAL_STORAGE_MARGIN_H_KEY = 'markdownEditorMarginH';
     const DEBOUNCE_DELAY = 250;
     const MIN_PANE_WIDTH = 150;
+    // const UNDO_STACK_MAX_SIZE = 100; // Max undo steps - REMOVED for "unlimited" undo to S0
 
     let isDraggingSplitter = false;
     let selectedCodeBlock = null;
@@ -242,13 +302,21 @@
     let savedOutputScrollTop = 0;
 
     let directHtmlEditsMade = false;
-    let isRenderingInternally = false; 
+    let isRenderingInternally = false;
+    let isApplyingStyle = false; // Flag to prevent re-entrant calls during style application
 
     let markdownInput, htmlOutput, htmlOutputContainer, codeBgColorPicker, fileInput, printButton,
         printDateElem, toggleDirButton, insertImageButton, insertImageActualInput, clearMarkdownBtn,
         inputPane, outputPane, splitter,
         marginTopInput, marginBottomInput, marginHorizontalInput, htmlOutputObserver,
-        applyBgToAllCodeButton; // <<< NEW VARIABLE for the "Apply to All" button
+        applyBgToAllCodeButton;
+
+    let fontSizeSlider, fontSizeValueSpan, decreaseFontSizeBtn, increaseFontSizeBtn, applyFontSizeBtn;
+    let currentTextSelectionRange = null;
+
+    let undoBtn, redoBtn;
+    let outputLineSpacingInput, applyLineSpacingBtn;
+
 
     // --- UTILITY FUNCTIONS ---
     function debounce(func, delay) {
@@ -259,11 +327,21 @@
         };
     }
     function rgbToHex(rgb) {
-        if (!rgb || typeof rgb !== 'string' || rgb.startsWith('#')) return rgb;
+        if (!rgb || typeof rgb !== 'string' || rgb.startsWith('#')) return rgb; // Already hex or invalid
         let sep = rgb.indexOf(",") > -1 ? "," : " ";
-        let parts = rgb.substring(rgb.indexOf('(') + 1, rgb.lastIndexOf(')')).split(sep);
-        if (parts.length < 3) return codeBgColorPicker ? codeBgColorPicker.value : DEFAULT_CODE_BG_COLOR;
-        let r = (+parts[0].trim()).toString(16), g = (+parts[1].trim()).toString(16), b = (+parts[2].trim()).toString(16);
+        //  Handle rgb(r, g, b) and rgba(r, g, b, a)
+        let partsMatch = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+        if (!partsMatch || partsMatch.length < 4) {
+             // Fallback for cases like "rgb 255 0 0"
+            let plainParts = rgb.substring(rgb.indexOf('(') + 1, rgb.lastIndexOf(')')).split(sep);
+            if (plainParts.length < 3) return DEFAULT_CODE_BG_COLOR; // Use global default if parsing fails
+            partsMatch = [null, ...plainParts.map(p => p.trim())];
+        }
+
+        let r = (+partsMatch[1]).toString(16),
+            g = (+partsMatch[2]).toString(16),
+            b = (+partsMatch[3]).toString(16);
+
         if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b;
         return "#" + r + g + b;
     }
@@ -276,11 +354,19 @@
     }
     function isColorLight(hexColor) {
         if (!hexColor || typeof hexColor !== 'string') return false;
-        const color = (hexColor.charAt(0) === '#') ? hexColor.substring(1, 7) : hexColor;
-        if (color.length !== 6) return false;
-        const r = parseInt(color.substring(0, 2), 16);
-        const g = parseInt(color.substring(2, 4), 16);
-        const b = parseInt(color.substring(4, 6), 16);
+        const color = (hexColor.charAt(0) === '#') ? hexColor.substring(1) : hexColor; // Remove #
+        if (color.length !== 6 && color.length !== 3) return false; // Allow 3-char hex
+        let r, g, b;
+        if (color.length === 3) {
+            r = parseInt(color[0] + color[0], 16);
+            g = parseInt(color[1] + color[1], 16);
+            b = parseInt(color[2] + color[2], 16);
+        } else {
+            r = parseInt(color.substring(0, 2), 16);
+            g = parseInt(color.substring(2, 4), 16);
+            b = parseInt(color.substring(4, 6), 16);
+        }
+        if (isNaN(r) || isNaN(g) || isNaN(b)) return false;
         const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
         return hsp > 127.5;
     }
@@ -293,7 +379,7 @@
         codeBgColorPicker = document.getElementById('codeBgColorPicker');
         fileInput = document.getElementById('fileInput');
         printButton = document.getElementById('printButton');
-        printDateElem = document.getElementById('printDate'); // This is the template in the main DOM
+        printDateElem = document.getElementById('printDate');
         toggleDirButton = document.getElementById('toggleDirButton');
         insertImageButton = document.getElementById('insertImageButton');
         insertImageActualInput = document.getElementById('insertImageActualInput');
@@ -304,7 +390,19 @@
         marginTopInput = document.getElementById('marginTopInput');
         marginBottomInput = document.getElementById('marginBottomInput');
         marginHorizontalInput = document.getElementById('marginHorizontalInput');
-        applyBgToAllCodeButton = document.getElementById('applyBgToAllCodeButton'); // <<< NEW: Get reference to the button
+        applyBgToAllCodeButton = document.getElementById('applyBgToAllCodeButton');
+
+        fontSizeSlider = document.getElementById('fontSizeSlider');
+        fontSizeValueSpan = document.getElementById('fontSizeValueSpan');
+        decreaseFontSizeBtn = document.getElementById('decreaseFontSizeBtn');
+        increaseFontSizeBtn = document.getElementById('increaseFontSizeBtn');
+        applyFontSizeBtn = document.getElementById('applyFontSizeBtn');
+
+        undoBtn = document.getElementById('undoBtn');
+        redoBtn = document.getElementById('redoBtn');
+        outputLineSpacingInput = document.getElementById('outputLineSpacingInput');
+        applyLineSpacingBtn = document.getElementById('applyLineSpacingBtn');
+
 
         if (selectedCodeBlock && !document.body.contains(selectedCodeBlock)) selectedCodeBlock = null;
 
@@ -334,18 +432,27 @@
             updateCssMargins(initialMarginTop, initialMarginBottom, initialMarginH);
         }
 
-        marked.setOptions({ gfm: true, breaks: true, sanitize: false, smartypants: true });
+        if (outputLineSpacingInput) {
+            document.documentElement.style.setProperty('--output-line-spacing', DEFAULT_OUTPUT_LINE_SPACING.toString());
+            outputLineSpacingInput.value = DEFAULT_OUTPUT_LINE_SPACING.toFixed(1);
+        }
+
+        marked.setOptions({ gfm: true, breaks: true, sanitize: true, smartypants: true });
 
         if (options.renderMd) {
             if ((isFirstAppInitialization || options.forceLoadFromStorage) && markdownInput) {
                 loadFromLocalStorage();
             }
-            renderMarkdown(); 
+            renderMarkdown({isInitialLoad: true});
         }
 
         isFirstAppInitialization = false;
-        updatePrintDateContent(); // Update content of the date element
-        attachEventListeners(); 
+        updatePrintDateContent();
+        attachEventListeners();
+
+        if (fontSizeSlider && fontSizeValueSpan) {
+            updateCurrentFontSizeDisplay();
+        }
 
         if (options.restoreScroll && htmlOutputContainer) {
             requestAnimationFrame(() => {
@@ -355,21 +462,29 @@
     }
 
     function setupHtmlOutputObserver() {
-        if (htmlOutputObserver) htmlOutputObserver.disconnect(); 
+        if (htmlOutputObserver) htmlOutputObserver.disconnect();
 
         htmlOutputObserver = new MutationObserver((mutationsList) => {
-            if (isRenderingInternally) {
-                return; 
+            if (isRenderingInternally || isUndoRedoInProgress || isApplyingStyle) {
+                return;
             }
-            for (const mutation of mutationsList) {
-                if (mutation.type === 'childList' || mutation.type === 'characterData' || 
-                    (mutation.type === 'attributes' && mutation.attributeName !== 'class')) { 
-                    if (!directHtmlEditsMade) {
-                        directHtmlEditsMade = true;
-                        if(htmlOutput) htmlOutput.classList.add('direct-edits-active');
-                    }
-                    break; 
+            const significantChange = mutationsList.some(mutation => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class' && mutation.target === htmlOutput) {
+                    const oldClasses = mutation.oldValue ? mutation.oldValue.split(' ') : [];
+                    const newClasses = Array.from(htmlOutput.classList);
+                    const onlyEditClassChanged = oldClasses.includes('direct-edits-active') !== newClasses.includes('direct-edits-active') &&
+                                                  oldClasses.filter(c => c !== 'direct-edits-active').join(' ') === newClasses.filter(c => c !== 'direct-edits-active').join(' ');
+                    return !onlyEditClassChanged;
                 }
+                return true;
+            });
+
+            if (significantChange) {
+                if (!directHtmlEditsMade) {
+                     directHtmlEditsMade = true;
+                     if(htmlOutput) htmlOutput.classList.add('direct-edits-active');
+                }
+                debouncedSaveEditorStateForDirectEdit();
             }
         });
         if (htmlOutput) {
@@ -378,7 +493,7 @@
                 subtree: true,
                 characterData: true,
                 attributes: true,
-                attributeOldValue: false 
+                attributeOldValue: true
             });
         }
     }
@@ -390,20 +505,60 @@
             htmlOutput.removeEventListener('focus', handleHtmlOutputFocus); htmlOutput.addEventListener('focus', handleHtmlOutputFocus);
             htmlOutput.removeEventListener('blur', handleHtmlOutputBlur); htmlOutput.addEventListener('blur', handleHtmlOutputBlur);
             htmlOutput.removeEventListener('click', handleHtmlOutputClick); htmlOutput.addEventListener('click', handleHtmlOutputClick);
-            setupHtmlOutputObserver(); 
+            htmlOutput.removeEventListener('mouseup', handleHtmlOutputSelectionChange);
+            htmlOutput.addEventListener('mouseup', handleHtmlOutputSelectionChange);
+            htmlOutput.removeEventListener('keyup', handleHtmlOutputSelectionChange);
+            htmlOutput.addEventListener('keyup', handleHtmlOutputSelectionChange);
+            setupHtmlOutputObserver();
         }
         if (insertImageButton) { insertImageButton.removeEventListener('click', handleInsertImageButtonClick); insertImageButton.addEventListener('click', handleInsertImageButtonClick); }
         if (insertImageActualInput) { insertImageActualInput.removeEventListener('change', handleInsertImageActualInputChange); insertImageActualInput.addEventListener('change', handleInsertImageActualInputChange); }
         if (fileInput) { fileInput.removeEventListener('change', handleFileInputChange); fileInput.addEventListener('change', handleFileInputChange); }
         if (printButton) { printButton.removeEventListener('click', handlePrintButtonClick); printButton.addEventListener('click', handlePrintButtonClick); }
         if (codeBgColorPicker) { codeBgColorPicker.removeEventListener('input', handleCodeBgColorPickerInput); codeBgColorPicker.addEventListener('input', handleCodeBgColorPickerInput); }
-        
-        // <<< NEW: Add event listener for the "Apply BG to All Code" button >>>
         if (applyBgToAllCodeButton) { applyBgToAllCodeButton.removeEventListener('click', handleApplyBgToAllCodeButtonClick); applyBgToAllCodeButton.addEventListener('click', handleApplyBgToAllCodeButtonClick); }
-        
+
+        if (fontSizeSlider) {
+            fontSizeSlider.removeEventListener('input', handleFontSizeSliderInput);
+            fontSizeSlider.addEventListener('input', handleFontSizeSliderInput);
+        }
+        if (decreaseFontSizeBtn) {
+            decreaseFontSizeBtn.removeEventListener('click', handleDecreaseFontSize);
+            decreaseFontSizeBtn.addEventListener('click', handleDecreaseFontSize);
+        }
+        if (increaseFontSizeBtn) {
+            increaseFontSizeBtn.removeEventListener('click', handleIncreaseFontSize);
+            increaseFontSizeBtn.addEventListener('click', handleIncreaseFontSize);
+        }
+        if (applyFontSizeBtn) {
+            applyFontSizeBtn.removeEventListener('click', handleApplyFontSizeBtnClick);
+            applyFontSizeBtn.addEventListener('click', handleApplyFontSizeBtnClick);
+        }
+
+        if (undoBtn) {
+            undoBtn.removeEventListener('click', handleUndo);
+            undoBtn.addEventListener('click', handleUndo);
+        }
+        if (redoBtn) {
+            redoBtn.removeEventListener('click', handleRedo);
+            redoBtn.addEventListener('click', handleRedo);
+        }
+
+        if (applyLineSpacingBtn) {
+            applyLineSpacingBtn.removeEventListener('click', applySelectedLineSpacing);
+            applyLineSpacingBtn.addEventListener('click', applySelectedLineSpacing);
+        }
+
+        document.removeEventListener('mousedown', handleDocumentMouseDownForSelection);
+        document.addEventListener('mousedown', handleDocumentMouseDownForSelection);
+
+        document.removeEventListener('keydown', handleGlobalKeyDown);
+        document.addEventListener('keydown', handleGlobalKeyDown);
+
+
         if (toggleDirButton) { toggleDirButton.removeEventListener('click', handleToggleDirButtonClick); toggleDirButton.addEventListener('click', handleToggleDirButtonClick); }
         if (clearMarkdownBtn) { clearMarkdownBtn.removeEventListener('click', handleClearMarkdownBtnClick); clearMarkdownBtn.addEventListener('click', handleClearMarkdownBtnClick); }
-        
+
         if (marginTopInput) { marginTopInput.removeEventListener('input', handleMarginChange); marginTopInput.addEventListener('input', handleMarginChange); }
         if (marginBottomInput) { marginBottomInput.removeEventListener('input', handleMarginChange); marginBottomInput.addEventListener('input', handleMarginChange); }
         if (marginHorizontalInput) { marginHorizontalInput.removeEventListener('input', handleMarginChange); marginHorizontalInput.addEventListener('input', handleMarginChange); }
@@ -417,19 +572,27 @@
         }
     }
 
+    const debouncedSaveEditorStateForDirectEdit = debounce(saveEditorState, 500);
+
+
     const debouncedActualRenderMarkdown = debounce(renderMarkdown, DEBOUNCE_DELAY);
     const debouncedSaveToLocalStorage = debounce(saveToLocalStorage, DEBOUNCE_DELAY + 50);
 
     function handleMarkdownInput() {
+        if (isUndoRedoInProgress) return;
         if (directHtmlEditsMade) {
-            if (!confirm("You've made direct edits to the HTML preview (e.g., inserted an image, styled code, or typed directly).\n\nModifying the Markdown will overwrite these direct HTML changes.\n\nProceed and overwrite HTML edits?")) {
+            if (!confirm("You've made direct edits to the HTML preview.\n\nModifying the Markdown will overwrite these direct HTML changes.\n(This action will be undoable).\n\nProceed and overwrite HTML edits?")) {
+                if (undoStack.length > 0) {
+                    const lastState = undoStack[undoStack.length - 1];
+                    if (lastState && markdownInput) markdownInput.value = lastState.markdown;
+                }
                 return;
             }
         }
-        debouncedActualRenderMarkdown();
+        debouncedActualRenderMarkdown({ fromUserInput: true });
         debouncedSaveToLocalStorage();
     }
-    
+
     function handleHtmlOutputFocus() {
         if (savedSelection && window.getSelection && htmlOutput) {
             const sel = window.getSelection();
@@ -437,9 +600,14 @@
             try {
                 if (htmlOutput.contains(savedSelection.commonAncestorContainer)) {
                     sel.addRange(savedSelection);
-                } else { throw new Error("Saved selection context invalid."); }
+                } else {
+                    const range = document.createRange();
+                    range.selectNodeContents(htmlOutput);
+                    range.collapse(false);
+                    sel.addRange(range);
+                }
             } catch (e) {
-                console.warn("Could not restore saved selection:", e);
+                console.warn("Could not restore saved selection on focus:", e);
                 const range = document.createRange();
                 range.selectNodeContents(htmlOutput);
                 range.collapse(false);
@@ -453,9 +621,13 @@
             if (selection && selection.rangeCount > 0 && htmlOutput && htmlOutput.contains(selection.getRangeAt(0).commonAncestorContainer)) {
                 savedSelection = selection.getRangeAt(0).cloneRange();
             } else { savedSelection = null; }
-        } catch (e) { console.error("Err saving selection:", e); savedSelection = null; }
+        } catch (e) { console.error("Err saving selection on blur:", e); savedSelection = null; }
     }
     function handleHtmlOutputClick(event) {
+        if (selectedCodeBlock && !document.body.contains(selectedCodeBlock)) {
+            selectedCodeBlock = null;
+        }
+
         const preElement = event.target.closest('pre');
         if (preElement && htmlOutput && htmlOutput.contains(preElement)) {
             event.stopPropagation();
@@ -465,6 +637,7 @@
             selectedCodeBlock = preElement;
             selectedCodeBlock.classList.add('selected-code-block');
             if (codeBgColorPicker) {
+                // If block has inline style for background, use that, else use global
                 codeBgColorPicker.value = selectedCodeBlock.style.backgroundColor ?
                     rgbToHex(selectedCodeBlock.style.backgroundColor) :
                     rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim()) || DEFAULT_CODE_BG_COLOR;
@@ -478,46 +651,73 @@
             if (file && file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = function(e_reader) {
+                    isApplyingStyle = true;
                     try {
                         const img = document.createElement('img');
                         img.src = e_reader.target.result; img.alt = file.name;
                         if (htmlOutput) htmlOutput.focus();
-                        const selection = window.getSelection(); let range;
-                        if (savedSelection && selection && htmlOutput && htmlOutput.contains(savedSelection.commonAncestorContainer)) {
-                            range = savedSelection; selection.removeAllRanges(); selection.addRange(range);
-                        } else if (selection && selection.rangeCount > 0 && htmlOutput && htmlOutput.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+
+                        const selection = window.getSelection();
+                        let range;
+
+                        if (selection && selection.rangeCount > 0 && htmlOutput && htmlOutput.contains(selection.getRangeAt(0).commonAncestorContainer)) {
                             range = selection.getRangeAt(0);
+                        } else if (savedSelection && htmlOutput && htmlOutput.contains(savedSelection.commonAncestorContainer)) {
+                            range = savedSelection;
+                            if(selection) { selection.removeAllRanges(); selection.addRange(range); }
                         } else if (htmlOutput) {
-                            range = document.createRange(); range.selectNodeContents(htmlOutput); range.collapse(false);
+                            range = document.createRange();
+                            range.selectNodeContents(htmlOutput);
+                            range.collapse(false);
                             if(selection){ selection.removeAllRanges(); selection.addRange(range); }
                         }
+
                         if (range) {
-                            range.deleteContents(); range.insertNode(img); const space = document.createTextNode(" "); img.after(space);
-                            range.setStartAfter(space); range.collapse(true);
+                            range.deleteContents();
+                            range.insertNode(img);
+                            const space = document.createTextNode(" ");
+                            img.after(space);
+                            range.setStartAfter(space);
+                            range.collapse(true);
                             if(selection){ selection.removeAllRanges(); selection.addRange(range); }
+                            currentTextSelectionRange = range.cloneRange();
                             savedSelection = range.cloneRange();
                             if (!directHtmlEditsMade) {
                                 directHtmlEditsMade = true;
                                 if(htmlOutput) htmlOutput.classList.add('direct-edits-active');
                             }
-                        } else if (htmlOutput) { htmlOutput.appendChild(img); htmlOutput.appendChild(document.createTextNode(" ")); }
+                            saveEditorState();
+                        } else if (htmlOutput) {
+                            htmlOutput.appendChild(img);
+                            htmlOutput.appendChild(document.createTextNode(" "));
+                            if (!directHtmlEditsMade) { directHtmlEditsMade = true; htmlOutput.classList.add('direct-edits-active');}
+                            saveEditorState();
+                        }
                     } catch (innerError) { console.error("Err image node insert:", innerError); alert("Error inserting image."); }
+                    finally { isApplyingStyle = false; }
                 };
-                reader.onerror = function(error) { console.error("FileReader err:", error); alert("Error reading image file."); };
+                reader.onerror = function(error) { console.error("FileReader err:", error); alert("Error reading image file."); isApplyingStyle = false; };
                 reader.readAsDataURL(file);
             } else if (file) { alert("Please select an image file."); }
         } catch (outerError) { console.error("Err img input change:", outerError); alert("Error processing image selection."); }
-        if (event.target) event.target.value = null; // Clear file input
+        if (event.target) event.target.value = null;
     }
     function handleFileInputChange(event) {
         const file = event.target.files[0];
         if (file && markdownInput) {
             const reader = new FileReader();
             reader.onload = function(e_reader) {
+                if (directHtmlEditsMade) {
+                    if (!confirm("Loading a new file will overwrite direct HTML edits (like images or custom styles).\nThis action will be undoable.\n\nProceed and overwrite HTML edits?")) {
+                        if (event.target) event.target.value = null;
+                        return;
+                    }
+                }
                 markdownInput.value = e_reader.target.result;
                 directHtmlEditsMade = false;
                 if (htmlOutput) htmlOutput.classList.remove('direct-edits-active');
-                renderMarkdown(); 
+                currentTextSelectionRange = null;
+                renderMarkdown({ fromUserInput: true });
                 saveToLocalStorage();
             };
             reader.onerror = function(error) {
@@ -526,12 +726,12 @@
             };
             reader.readAsText(file);
         }
-        if (event.target) event.target.value = null; // Clear file input
+        if (event.target) event.target.value = null;
     }
 
-    let originalBodyHTML_print = ''; 
+    let originalBodyHTML_print = '';
     let originalBodyClassName_print = '';
-    let originalScrollX_print = 0; 
+    let originalScrollX_print = 0;
     let originalScrollY_print = 0;
     let originalMarkdownInputValue_print = '';
 
@@ -539,16 +739,10 @@
         document.body.innerHTML = originalBodyHTML_print;
         document.body.className = originalBodyClassName_print;
         window.scrollTo(originalScrollX_print, originalScrollY_print);
-        
-        initializeApp({ renderMd: false, restoreScroll: true }); 
-        
-        if (markdownInput) { 
-             markdownInput.value = originalMarkdownInputValue_print;
-        } else {
-            const restoredMdInput = document.getElementById('markdownInput');
-            if (restoredMdInput) restoredMdInput.value = originalMarkdownInputValue_print;
+        initializeApp({ renderMd: false, forceLoadFromStorage: false, restoreScroll: true });
+        if (document.getElementById('markdownInput')) {
+             document.getElementById('markdownInput').value = originalMarkdownInputValue_print;
         }
-        
         window.removeEventListener('afterprint', restorePageAfterPrint);
     }
 
@@ -560,108 +754,253 @@
                 codeBgColorPicker.value = globalBg;
             }
         }
-        updatePrintDateContent(); 
+        updatePrintDateContent();
 
         if (htmlOutputContainer) {
             savedOutputScrollTop = htmlOutputContainer.scrollTop;
         }
 
-        if (markdownInput) originalMarkdownInputValue_print = markdownInput.value;
+        if (document.getElementById('markdownInput')) originalMarkdownInputValue_print = document.getElementById('markdownInput').value;
         originalBodyHTML_print = document.body.innerHTML;
         originalBodyClassName_print = document.body.className;
         originalScrollX_print = window.scrollX; originalScrollY_print = window.scrollY;
 
         const printContainerElement = document.getElementById('htmlOutputContainer');
         const outputContentElement = document.getElementById('htmlOutput');
-        
-        if (!printContainerElement || !outputContentElement || !printDateElem) {
-            console.error("Required elements for printing not found! (Container, Output, or Date Elem)"); 
-            alert("Error preparing content for printing."); 
+        const dateTemplateElement = document.getElementById('printDate');
+
+
+        if (!printContainerElement || !outputContentElement || !dateTemplateElement) {
+            console.error("Required elements for printing not found! (Container, Output, or Date Elem)");
+            alert("Error preparing content for printing.");
             return;
         }
 
         const outputContentClone = outputContentElement.cloneNode(true);
-        const dateElemForPrint = printDateElem.cloneNode(true); 
 
-        const tempPrintDiv = document.createElement('div');
-        tempPrintDiv.id = 'htmlOutputContainer'; 
-        tempPrintDiv.setAttribute('dir', printContainerElement.getAttribute('dir'));
-        
-        tempPrintDiv.appendChild(dateElemForPrint);
-        tempPrintDiv.appendChild(outputContentClone);
-        const contentToPrint = tempPrintDiv.outerHTML;
+        const style = document.createElement('style');
+        style.textContent = `
+            body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background-color: #fff !important;
+            }
+            #htmlOutputContainer {
+                padding: 0 !important;
+                margin: 0 !important;
+                border: none !important;
+                background-color: #fff !important;
+                width: 100% !important;
+                overflow: visible !important;
+            }
+            #htmlOutput.markdown-body {
+                padding-top: var(--a4-margin-top) !important;
+                padding-bottom: var(--a4-margin-bottom) !important;
+                padding-left: var(--a4-margin-horizontal) !important;
+                padding-right: var(--a4-margin-horizontal) !important;
+                width: calc(var(--a4-width) - (2 * var(--a4-margin-horizontal))) !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                border: none !important;
+                font-size: 10pt !important;
+                line-height: var(--output-line-spacing) !important;
+                color: #000 !important;
+                background-color: #fff !important;
+            }
+            pre {
+                background-color: var(--global-code-bg-color) !important;
+                color: var(--global-code-text-color) !important;
+                border: 1px solid #444 !important;
+                padding: 0.8em !important;
+                white-space: pre-wrap !important;
+                word-break: break-all !important;
+                page-break-inside: auto !important;
+            }
+            img { max-width: 100% !important; height: auto !important; page-break-inside: avoid; }
+            .print-only-date {
+                display: block !important;
+                font-size: 9pt;
+                color: #555;
+                text-align: right;
+                margin-bottom: 1mm;
+            }
+        `;
 
-        document.body.innerHTML = contentToPrint;
+        const dateElemForPrint = dateTemplateElement.cloneNode(true);
+        dateElemForPrint.style.display = 'block';
+
+        const printDoc = `
+            <html>
+            <head>
+                <title>Print Preview</title>
+                <style>
+                    :root {
+                        --global-code-bg-color: ${getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim() || DEFAULT_CODE_BG_COLOR};
+                        --global-code-text-color: ${getComputedStyle(document.documentElement).getPropertyValue('--global-code-text-color').trim() || DEFAULT_CODE_TEXT_COLOR};
+                        --a4-margin-top: ${getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-top').trim() || (DEFAULT_MARGIN_TOP_MM + 'mm')};
+                        --a4-margin-bottom: ${getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-bottom').trim() || (DEFAULT_MARGIN_BOTTOM_MM + 'mm')};
+                        --a4-margin-horizontal: ${getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-horizontal').trim() || (DEFAULT_MARGIN_HORIZONTAL_MM + 'mm')};
+                        --output-line-spacing: ${getComputedStyle(document.documentElement).getPropertyValue('--output-line-spacing').trim() || DEFAULT_OUTPUT_LINE_SPACING};
+                    }
+                    ${document.querySelector('link[href*="github-markdown-light"]').outerHTML}
+                    ${style.textContent}
+                     @page {
+                        size: A4 portrait;
+                        margin-top: var(--a4-margin-top);
+                        margin-bottom: var(--a4-margin-bottom);
+                        margin-left: var(--a4-margin-horizontal);
+                        margin-right: var(--a4-margin-horizontal);
+                        @bottom-right {
+                            content: "Page " counter(page) " of " counter(pages);
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            font-size: 9pt;
+                            color: #555;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <div id="htmlOutputContainer" dir="${printContainerElement.getAttribute('dir') || 'ltr'}">
+                    ${dateElemForPrint.outerHTML}
+                    <div id="htmlOutput" class="markdown-body">
+                        ${outputContentClone.innerHTML}
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        document.body.innerHTML = printDoc;
+        document.body.className = '';
+
         window.addEventListener('afterprint', restorePageAfterPrint);
         window.print();
     }
 
     function handleCodeBgColorPickerInput(e) {
         const newBgColor = e.target.value;
-        const newTextColor = isColorLight(newBgColor) ? '#212529' : '#f8f8f2';
+
         if (selectedCodeBlock) {
-            selectedCodeBlock.style.backgroundColor = newBgColor;
-            selectedCodeBlock.style.color = newTextColor;
-            if (!directHtmlEditsMade) {
-                directHtmlEditsMade = true;
-                if (htmlOutput) htmlOutput.classList.add('direct-edits-active');
+            isApplyingStyle = true;
+            try {
+                const newTextColor = isColorLight(newBgColor) ? '#212529' : '#f8f8f2';
+                selectedCodeBlock.style.backgroundColor = newBgColor;
+                selectedCodeBlock.style.color = newTextColor;
+                if (!directHtmlEditsMade) {
+                    directHtmlEditsMade = true;
+                    if(htmlOutput) htmlOutput.classList.add('direct-edits-active');
+                }
+                saveEditorState();
+            } catch (err) {
+                console.error("Error applying style to selected code block:", err);
+            } finally {
+                isApplyingStyle = false;
             }
         } else {
-            document.documentElement.style.setProperty('--global-code-bg-color', newBgColor);
-            document.documentElement.style.setProperty('--global-code-text-color', newTextColor);
+            alert('Please select a code block first to change its color, or use "Apply to All" to change the default for all blocks.');
+            if(codeBgColorPicker) {
+                codeBgColorPicker.value = rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim() || DEFAULT_CODE_BG_COLOR);
+            }
         }
     }
 
-    // <<< NEW FUNCTION TO HANDLE "APPLY BG TO ALL CODE" BUTTON CLICK >>>
     function handleApplyBgToAllCodeButtonClick() {
         if (!codeBgColorPicker || !htmlOutput) {
             console.warn("Apply BG to All: Color picker or HTML output not found.");
             return;
         }
+        isApplyingStyle = true;
+        try {
+            const newBgColor = codeBgColorPicker.value;
+            const newTextColor = isColorLight(newBgColor) ? '#212529' : '#f8f8f2';
 
-        const newBgColor = codeBgColorPicker.value;
-        const newTextColor = isColorLight(newBgColor) ? '#212529' : '#f8f8f2';
+            document.documentElement.style.setProperty('--global-code-bg-color', newBgColor);
+            document.documentElement.style.setProperty('--global-code-text-color', newTextColor);
 
-        // 1. Update global CSS variables for future Markdown renders.
-        document.documentElement.style.setProperty('--global-code-bg-color', newBgColor);
-        document.documentElement.style.setProperty('--global-code-text-color', newTextColor);
+            const codeBlocksInOutput = htmlOutput.querySelectorAll('pre');
+            codeBlocksInOutput.forEach(block => {
+                block.style.backgroundColor = ''; // Clear inline style to inherit global
+                block.style.color = '';       // Clear inline style to inherit global
+            });
 
-        // 2. Apply to all existing code blocks (<pre>) in the output.
-        const codeBlocksInOutput = htmlOutput.querySelectorAll('pre');
-        codeBlocksInOutput.forEach(block => {
-            block.style.backgroundColor = newBgColor;
-            block.style.color = newTextColor;
-        });
-
-        // 3. Mark that direct HTML edits were made if any blocks were changed.
-        if (codeBlocksInOutput.length > 0) { 
             if (!directHtmlEditsMade) {
                 directHtmlEditsMade = true;
-                htmlOutput.classList.add('direct-edits-active');
+                if (htmlOutput) htmlOutput.classList.add('direct-edits-active');
             }
+            saveEditorState();
+        } catch (err) {
+            console.error("Error in ApplyBgToAllCodeButton:", err);
+        }
+        finally {
+            isApplyingStyle = false;
         }
     }
-    // <<< END OF NEW FUNCTION >>>
+
 
     function handleToggleDirButtonClick() {
         if (!htmlOutputContainer) { console.error("htmlOutputContainer not found for direction toggle."); return; }
         const currentDir = htmlOutputContainer.getAttribute('dir');
         htmlOutputContainer.setAttribute('dir', currentDir === 'rtl' ? 'ltr' : 'rtl');
+        saveEditorState();
     }
+
     function handleClearMarkdownBtnClick() {
-        if (confirm("Are you sure you want to clear the input and saved content?")) {
-            if (markdownInput) {
-                markdownInput.value = '';
-                directHtmlEditsMade = false; 
-                if (htmlOutput) htmlOutput.classList.remove('direct-edits-active');
-                renderMarkdown(); 
-                saveToLocalStorage(); 
+        if (confirm("Are you sure you want to clear the input, output, and reset all history? This action itself is not undoable beyond this point.")) {
+            if (markdownInput && htmlOutput && htmlOutputContainer) {
+                isRenderingInternally = true;
+                try {
+                    markdownInput.value = '';
+                    htmlOutput.innerHTML = '';
+
+                    localStorage.removeItem(LOCAL_STORAGE_KEY);
+                    // Optionally clear saved margins too for a full reset, but user didn't ask for this part to be reset.
+                    // localStorage.removeItem(LOCAL_STORAGE_MARGIN_TOP_KEY);
+                    // localStorage.removeItem(LOCAL_STORAGE_MARGIN_BOTTOM_KEY);
+                    // localStorage.removeItem(LOCAL_STORAGE_MARGIN_H_KEY);
+
+                    undoStack = [];
+                    redoStack = [];
+                    const emptyInitialState = {
+                        markdown: "",
+                        html: "",
+                        scrollTop: 0,
+                        directHtmlEditsMade: false,
+                        selectedCodeBlockId: null,
+                        globalCodeBg: getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim() || DEFAULT_CODE_BG_COLOR,
+                        globalCodeText: getComputedStyle(document.documentElement).getPropertyValue('--global-code-text-color').trim() || DEFAULT_CODE_TEXT_COLOR,
+                        margins: {
+                            top: getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-top').trim(),
+                            bottom: getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-bottom').trim(),
+                            horizontal: getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-horizontal').trim(),
+                        },
+                        direction: 'ltr'
+                    };
+                    undoStack.push(emptyInitialState);
+
+                    directHtmlEditsMade = false;
+                    htmlOutput.classList.remove('direct-edits-active');
+                    htmlOutputContainer.setAttribute('dir', 'ltr');
+
+                    currentTextSelectionRange = null;
+                    savedSelection = null;
+                    selectedCodeBlock = null;
+                    if (codeBgColorPicker) { // Reset color picker to global default
+                         codeBgColorPicker.value = rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim() || DEFAULT_CODE_BG_COLOR);
+                    }
+
+                } finally {
+                    isRenderingInternally = false;
+                    toggleUndoRedoButtons();
+                }
             }
         }
     }
     function handleDocumentClickForCodeBlock(event) {
         if (selectedCodeBlock && htmlOutput && htmlOutput.contains(selectedCodeBlock) &&
-            !selectedCodeBlock.contains(event.target) && event.target !== codeBgColorPicker) {
+            !selectedCodeBlock.contains(event.target) && event.target !== codeBgColorPicker &&
+            !event.target.closest('.control-group') &&
+            !(event.target.tagName === 'BUTTON' || (event.target.tagName === 'INPUT' && event.target.type !== 'range'))
+           ) {
             selectedCodeBlock.classList.remove('selected-code-block'); selectedCodeBlock = null;
             if (codeBgColorPicker) {
                 const globalBg = rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim()) || DEFAULT_CODE_BG_COLOR;
@@ -671,25 +1010,32 @@
     }
 
     function updateCssMargins(topMargin, bottomMargin, hMargin) {
-        if (typeof topMargin === 'number' && typeof bottomMargin === 'number' && typeof hMargin === 'number') {
-            document.documentElement.style.setProperty('--a4-margin-top', `${topMargin}mm`);
-            document.documentElement.style.setProperty('--a4-margin-bottom', `${bottomMargin}mm`);
-            document.documentElement.style.setProperty('--a4-margin-horizontal', `${hMargin}mm`);
-        }
-    }
-    const debouncedUpdateCssMargins = debounce(updateCssMargins, 300);
+        const validTop = typeof topMargin === 'number' && !isNaN(topMargin) ? topMargin : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-top')) || DEFAULT_MARGIN_TOP_MM;
+        const validBottom = typeof bottomMargin === 'number' && !isNaN(bottomMargin) ? bottomMargin : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-bottom')) || DEFAULT_MARGIN_BOTTOM_MM;
+        const validH = typeof hMargin === 'number' && !isNaN(hMargin) ? hMargin : parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-horizontal')) || DEFAULT_MARGIN_HORIZONTAL_MM;
 
-    function handleMarginChange() {
+        document.documentElement.style.setProperty('--a4-margin-top', `${validTop}mm`);
+        document.documentElement.style.setProperty('--a4-margin-bottom', `${validBottom}mm`);
+        document.documentElement.style.setProperty('--a4-margin-horizontal', `${validH}mm`);
+    }
+
+    const debouncedUpdateCssMarginsAndUpdateState = debounce(() => {
+        if (!marginTopInput || !marginBottomInput || !marginHorizontalInput) return;
         const topMargin = parseFloat(marginTopInput.value);
         const bottomMargin = parseFloat(marginBottomInput.value);
         const hMargin = parseFloat(marginHorizontalInput.value);
-
         if (!isNaN(topMargin) && !isNaN(bottomMargin) && !isNaN(hMargin)) {
-            debouncedUpdateCssMargins(topMargin, bottomMargin, hMargin);
-            localStorage.setItem(LOCAL_STORAGE_MARGIN_TOP_KEY, topMargin);
-            localStorage.setItem(LOCAL_STORAGE_MARGIN_BOTTOM_KEY, bottomMargin);
-            localStorage.setItem(LOCAL_STORAGE_MARGIN_H_KEY, hMargin);
+            updateCssMargins(topMargin, bottomMargin, hMargin);
+            localStorage.setItem(LOCAL_STORAGE_MARGIN_TOP_KEY, topMargin.toString());
+            localStorage.setItem(LOCAL_STORAGE_MARGIN_BOTTOM_KEY, bottomMargin.toString());
+            localStorage.setItem(LOCAL_STORAGE_MARGIN_H_KEY, hMargin.toString());
+            saveEditorState();
         }
+    }, 300);
+
+
+    function handleMarginChange() {
+        debouncedUpdateCssMarginsAndUpdateState();
     }
 
     function handleSplitterMove(clientX) {
@@ -726,44 +1072,550 @@
         document.addEventListener('touchend', onSplitterTouchEnd);
     }
 
-    function renderMarkdown() {
-        if (!markdownInput || !htmlOutput) return;
-        
-        isRenderingInternally = true; 
+    function renderMarkdown(options = { fromUserInput: false, isInitialLoad: false }) {
+        if (!markdownInput || !htmlOutput || !htmlOutputContainer) return;
+
+        const currentScrollTop = htmlOutputContainer.scrollTop;
+        const currentScrollLeft = htmlOutputContainer.scrollLeft;
+
+        isRenderingInternally = true;
         try {
-            htmlOutput.innerHTML = marked.parse(markdownInput.value || "");
-            if (htmlOutput.classList.contains('direct-edits-active')) {
-                directHtmlEditsMade = false;
-                htmlOutput.classList.remove('direct-edits-active');
+            if (selectedCodeBlock && (!document.body.contains(selectedCodeBlock) || !htmlOutput.contains(selectedCodeBlock))) {
+                selectedCodeBlock = null;
+                 if(codeBgColorPicker) codeBgColorPicker.value = rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim() || DEFAULT_CODE_BG_COLOR);
             }
+
+            htmlOutput.innerHTML = marked.parse(markdownInput.value || "");
+
+            if (options.fromUserInput && !options.isInitialLoad) {
+                directHtmlEditsMade = false;
+            }
+            htmlOutput.classList.remove('direct-edits-active');
+
         } catch (e) {
             console.error("Error parsing Markdown:", e);
             if (htmlOutput) htmlOutput.innerHTML = "<p style='color:red;'>Error rendering Markdown.</p>";
         } finally {
-            setTimeout(() => {
+            requestAnimationFrame(() => {
+                if (htmlOutputContainer) { // Check if still exists
+                    htmlOutputContainer.scrollTop = currentScrollTop;
+                    htmlOutputContainer.scrollLeft = currentScrollLeft;
+                }
                 isRenderingInternally = false;
-            }, 0);
+            });
+        }
+
+        if (options.fromUserInput || options.isInitialLoad) {
+            saveEditorState();
         }
     }
-    function updatePrintDateContent() { 
+    function updatePrintDateContent() {
         if (printDateElem) {
-            printDateElem.textContent = getFormattedDateYYYYMMDD(); 
+            printDateElem.textContent = getFormattedDateYYYYMMDD();
         }
     }
-    function loadFromLocalStorage() { 
-        if (markdownInput) { 
-            const saved = localStorage.getItem(LOCAL_STORAGE_KEY); 
-            if (saved) { 
-                markdownInput.value = saved; 
-            } 
-        } 
+    function loadFromLocalStorage() {
+        if (markdownInput) {
+            const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (saved) {
+                markdownInput.value = saved;
+                directHtmlEditsMade = false;
+                if(htmlOutput) htmlOutput.classList.remove('direct-edits-active');
+            }
+        }
     }
-    function saveToLocalStorage() { 
-        if (markdownInput) localStorage.setItem(LOCAL_STORAGE_KEY, markdownInput.value); 
+    function saveToLocalStorage() {
+        if (markdownInput) localStorage.setItem(LOCAL_STORAGE_KEY, markdownInput.value);
+    }
+
+
+    // --- Font Size Control Functions ---
+    function updateCurrentFontSizeDisplay() {
+        if (fontSizeSlider && fontSizeValueSpan) {
+            fontSizeValueSpan.textContent = fontSizeSlider.value + 'px';
+        }
+    }
+
+    function handleFontSizeSliderInput() {
+        updateCurrentFontSizeDisplay();
+    }
+
+    function handleDecreaseFontSize() {
+        if (fontSizeSlider) {
+            fontSizeSlider.value = Math.max(parseInt(fontSizeSlider.min), parseInt(fontSizeSlider.value) - 1);
+            updateCurrentFontSizeDisplay();
+            applySelectedFontSize();
+        }
+    }
+
+    function handleIncreaseFontSize() {
+        if (fontSizeSlider) {
+            fontSizeSlider.value = Math.min(parseInt(fontSizeSlider.max), parseInt(fontSizeSlider.value) + 1);
+            updateCurrentFontSizeDisplay();
+            applySelectedFontSize();
+        }
+    }
+
+    function handleApplyFontSizeBtnClick() {
+        applySelectedFontSize();
+    }
+
+    function handleHtmlOutputSelectionChange() {
+        if (!htmlOutput || isUndoRedoInProgress || isApplyingStyle || isRenderingInternally) return;
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+
+            if (htmlOutput.contains(range.commonAncestorContainer)) {
+                currentTextSelectionRange = range.cloneRange();
+
+                let commonContainer = range.commonAncestorContainer;
+                if (commonContainer.nodeType === Node.TEXT_NODE) {
+                    commonContainer = commonContainer.parentNode;
+                }
+
+                if (fontSizeSlider && commonContainer instanceof HTMLElement && htmlOutput.contains(commonContainer)) {
+                    let elementToTest = commonContainer;
+                    let foundSize = false;
+                    while (elementToTest && elementToTest !== htmlOutput && htmlOutput.contains(elementToTest)) {
+                        if (elementToTest.style && elementToTest.style.fontSize) {
+                            const size = parseInt(elementToTest.style.fontSize);
+                            if (!isNaN(size)) {
+                                fontSizeSlider.value = Math.max(parseInt(fontSizeSlider.min), Math.min(parseInt(fontSizeSlider.max), size));
+                                updateCurrentFontSizeDisplay();
+                                foundSize = true;
+                            }
+                            break;
+                        }
+                        elementToTest = elementToTest.parentNode;
+                         if (!(elementToTest instanceof HTMLElement)) break;
+                    }
+                    if (!foundSize) {
+                         const computedStyle = window.getComputedStyle(commonContainer);
+                         const inheritedSize = parseInt(computedStyle.fontSize);
+                         if (!isNaN(inheritedSize)) {
+                            fontSizeSlider.value = Math.max(parseInt(fontSizeSlider.min), Math.min(parseInt(fontSizeSlider.max), inheritedSize));
+                         } else {
+                            fontSizeSlider.value = 16;
+                         }
+                         updateCurrentFontSizeDisplay();
+                    }
+                }
+
+                if (outputLineSpacingInput && commonContainer instanceof HTMLElement && htmlOutput.contains(commonContainer)) {
+                    let elementToTest = commonContainer;
+                    let foundLH = false;
+                    while (elementToTest && elementToTest !== htmlOutput && htmlOutput.contains(elementToTest)) {
+                         if (elementToTest.style && elementToTest.style.lineHeight) {
+                            const lh = parseFloat(elementToTest.style.lineHeight);
+                            if (!isNaN(lh)) {
+                                outputLineSpacingInput.value = lh.toFixed(1);
+                                foundLH = true;
+                            }
+                            break;
+                        }
+                        elementToTest = elementToTest.parentNode;
+                        if (!(elementToTest instanceof HTMLElement)) break;
+                    }
+                    if (!foundLH) {
+                        const computedStyle = window.getComputedStyle(commonContainer);
+                        let finalLH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--output-line-spacing').trim() || DEFAULT_OUTPUT_LINE_SPACING);
+                        if (computedStyle.lineHeight && computedStyle.lineHeight !== 'normal') {
+                            const computedLH = parseFloat(computedStyle.lineHeight);
+                            if (!isNaN(computedLH)) {
+                                const currentFontSize = parseFloat(computedStyle.fontSize) || 16;
+                                const relativeLH = computedLH / currentFontSize;
+                                if (relativeLH >= 0.5 && relativeLH <=4) {
+                                     finalLH = relativeLH;
+                                }
+                            }
+                        }
+                        outputLineSpacingInput.value = finalLH.toFixed(1);
+                    }
+                }
+            }
+        } else {
+            currentTextSelectionRange = null;
+            if (fontSizeSlider) { fontSizeSlider.value = 16; updateCurrentFontSizeDisplay(); }
+            if (outputLineSpacingInput) { outputLineSpacingInput.value = DEFAULT_OUTPUT_LINE_SPACING.toFixed(1); }
+        }
+    }
+
+
+    function handleDocumentMouseDownForSelection(event) {
+        // No specific action needed here for now based on requirements.
+    }
+
+    function wrapSelectedTextWithStyledSpan(styleProperty, styleValue) {
+        if (!htmlOutput) return false;
+
+        htmlOutput.focus();
+
+        const selection = window.getSelection();
+        let rangeToUse = null;
+
+        if (selection && selection.rangeCount > 0) {
+            const liveRange = selection.getRangeAt(0);
+            if (htmlOutput.contains(liveRange.commonAncestorContainer) && !liveRange.collapsed) {
+                rangeToUse = liveRange;
+            }
+        }
+        if (!rangeToUse && currentTextSelectionRange && !currentTextSelectionRange.collapsed && htmlOutput.contains(currentTextSelectionRange.commonAncestorContainer)) {
+             rangeToUse = currentTextSelectionRange.cloneRange();
+             selection.removeAllRanges();
+             selection.addRange(rangeToUse);
+        }
+
+        if (!rangeToUse) {
+            alert(`Please select some text in the output window first to apply ${styleProperty.replace(/([A-Z])/g, ' $1').toLowerCase()}.`);
+            return false;
+        }
+
+        isApplyingStyle = true;
+        try {
+            const span = document.createElement('span');
+            span.style[styleProperty] = styleValue;
+
+            const contentsFragment = rangeToUse.extractContents();
+            Array.from(contentsFragment.childNodes).forEach(node => {
+                if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'SPAN' && node.style[styleProperty]) {
+                    node.style[styleProperty] = '';
+                    if (!node.getAttribute('style')) {
+                        node.removeAttribute('style');
+                    }
+                }
+            });
+
+            span.appendChild(contentsFragment);
+            rangeToUse.insertNode(span);
+
+            if (!directHtmlEditsMade) {
+                directHtmlEditsMade = true;
+                if(htmlOutput) htmlOutput.classList.add('direct-edits-active');
+            }
+
+            selection.removeAllRanges();
+            const newRange = document.createRange();
+            newRange.selectNodeContents(span);
+            selection.addRange(newRange);
+            currentTextSelectionRange = newRange.cloneRange();
+            savedSelection = newRange.cloneRange();
+
+            saveEditorState();
+            return true;
+
+        } catch (e) {
+            console.error(`Error applying ${styleProperty}: `, e);
+            alert(`Could not apply ${styleProperty.replace(/([A-Z])/g, ' $1').toLowerCase()}. Please try re-selecting the text.`);
+            if (rangeToUse && selection) {
+                 try {
+                    selection.removeAllRanges(); selection.addRange(rangeToUse);
+                }
+                 catch (restoreError) { console.warn("Could not restore selection after style error:", restoreError); }
+            }
+            currentTextSelectionRange = null;
+            return false;
+        } finally {
+            isApplyingStyle = false;
+        }
+    }
+
+
+    function applySelectedFontSize() {
+        if (!fontSizeSlider) return;
+        const newSizeStyle = fontSizeSlider.value + 'px';
+        if (wrapSelectedTextWithStyledSpan('fontSize', newSizeStyle)) {
+            handleHtmlOutputSelectionChange();
+        }
+    }
+
+
+    // --- UNDO/REDO SYSTEM (ENHANCED) ---
+    let undoStack = [];
+    let redoStack = [];
+    let isUndoRedoInProgress = false;
+
+    function saveEditorState() {
+        if (isUndoRedoInProgress || isRenderingInternally || isApplyingStyle) {
+            // console.log("Save skipped due to flag:", {isUndoRedoInProgress, isRenderingInternally, isApplyingStyle});
+            return;
+        }
+        if (!markdownInput || !htmlOutput || !htmlOutputContainer) { // Ensure elements are available
+            // console.log("Save skipped, core elements not found.");
+            return;
+        }
+
+        let currentSelectedCodeBlock = document.querySelector('#htmlOutput pre.selected-code-block');
+        let currentSelectedCodeBlockId = null;
+        if (currentSelectedCodeBlock) {
+            if (!currentSelectedCodeBlock.id) {
+                currentSelectedCodeBlock.id = `cb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            }
+            currentSelectedCodeBlockId = currentSelectedCodeBlock.id;
+        }
+
+        const state = {
+            markdown: markdownInput.value,
+            html: htmlOutput.innerHTML,
+            scrollTop: htmlOutputContainer.scrollTop,
+            directHtmlEditsMade: directHtmlEditsMade,
+            selectedCodeBlockId: currentSelectedCodeBlockId,
+            globalCodeBg: document.documentElement.style.getPropertyValue('--global-code-bg-color'),
+            globalCodeText: document.documentElement.style.getPropertyValue('--global-code-text-color'),
+            margins: {
+                top: document.documentElement.style.getPropertyValue('--a4-margin-top'),
+                bottom: document.documentElement.style.getPropertyValue('--a4-margin-bottom'),
+                horizontal: document.documentElement.style.getPropertyValue('--a4-margin-horizontal'),
+            },
+            direction: htmlOutputContainer.getAttribute('dir')
+        };
+
+        if (undoStack.length > 0) {
+            const lastState = undoStack[undoStack.length - 1];
+            if (lastState.markdown === state.markdown && lastState.html === state.html &&
+                lastState.directHtmlEditsMade === state.directHtmlEditsMade &&
+                lastState.direction === state.direction &&
+                JSON.stringify(lastState.margins) === JSON.stringify(state.margins) &&
+                lastState.globalCodeBg === state.globalCodeBg &&
+                lastState.globalCodeText === state.globalCodeText &&
+                lastState.selectedCodeBlockId === state.selectedCodeBlockId
+                ) {
+                lastState.scrollTop = state.scrollTop; // Update scroll if it's the only significant change
+                // console.log("Save skipped, state deemed duplicate (only scrollTop might have changed).");
+                return;
+            }
+        }
+
+        undoStack.push(state);
+        // Removed: if (undoStack.length > UNDO_STACK_MAX_SIZE) { undoStack.shift(); } for "unlimited" undo.
+        redoStack = [];
+        toggleUndoRedoButtons();
+        // console.log("State saved. Undo stack size:", undoStack.length);
+    }
+
+    function toggleUndoRedoButtons() {
+        if(undoBtn) undoBtn.disabled = undoStack.length <= 1; // Can't undo the initial state
+        if(redoBtn) redoBtn.disabled = redoStack.length === 0;
+    }
+
+    function restoreState(stateToRestore) {
+        isUndoRedoInProgress = true;
+        isRenderingInternally = true; // Prevent observer during restoration
+
+        try {
+            if (!markdownInput || !htmlOutput || !htmlOutputContainer || !codeBgColorPicker ||
+                !marginTopInput || !marginBottomInput || !marginHorizontalInput) {
+                console.error("Cannot restore state: one or more critical elements are missing.");
+                return;
+            }
+
+            markdownInput.value = stateToRestore.markdown;
+            htmlOutput.innerHTML = stateToRestore.html;
+
+            directHtmlEditsMade = stateToRestore.directHtmlEditsMade;
+            if (directHtmlEditsMade) {
+                htmlOutput.classList.add('direct-edits-active');
+            } else {
+                htmlOutput.classList.remove('direct-edits-active');
+            }
+
+            document.documentElement.style.setProperty('--global-code-bg-color', stateToRestore.globalCodeBg || DEFAULT_CODE_BG_COLOR);
+            document.documentElement.style.setProperty('--global-code-text-color', stateToRestore.globalCodeText || DEFAULT_CODE_TEXT_COLOR);
+            codeBgColorPicker.value = rgbToHex(stateToRestore.globalCodeBg || DEFAULT_CODE_BG_COLOR);
+
+
+            updateCssMargins(
+                parseFloat(stateToRestore.margins.top),
+                parseFloat(stateToRestore.margins.bottom),
+                parseFloat(stateToRestore.margins.horizontal)
+            );
+            marginTopInput.value = parseFloat(stateToRestore.margins.top) || DEFAULT_MARGIN_TOP_MM;
+            marginBottomInput.value = parseFloat(stateToRestore.margins.bottom) || DEFAULT_MARGIN_BOTTOM_MM;
+            marginHorizontalInput.value = parseFloat(stateToRestore.margins.horizontal) || DEFAULT_MARGIN_HORIZONTAL_MM;
+
+            htmlOutputContainer.setAttribute('dir', stateToRestore.direction || 'ltr');
+
+            if(selectedCodeBlock && document.body.contains(selectedCodeBlock)) {
+                selectedCodeBlock.classList.remove('selected-code-block');
+            }
+            selectedCodeBlock = null;
+
+            // Wait for DOM to update from innerHTML, then find and select the block
+            requestAnimationFrame(() => {
+                const previouslySelectedBlock = stateToRestore.selectedCodeBlockId ? document.getElementById(stateToRestore.selectedCodeBlockId) : null;
+                if (previouslySelectedBlock && previouslySelectedBlock.tagName === 'PRE' && htmlOutput.contains(previouslySelectedBlock)) {
+                    selectedCodeBlock = previouslySelectedBlock;
+                    selectedCodeBlock.classList.add('selected-code-block');
+                    if (codeBgColorPicker) { // Update color picker if selected block had specific style
+                        codeBgColorPicker.value = selectedCodeBlock.style.backgroundColor ?
+                             rgbToHex(selectedCodeBlock.style.backgroundColor) :
+                             rgbToHex(stateToRestore.globalCodeBg || DEFAULT_CODE_BG_COLOR);
+                    }
+                } else if (codeBgColorPicker) { // No block selected or found, picker shows global
+                     codeBgColorPicker.value = rgbToHex(stateToRestore.globalCodeBg || DEFAULT_CODE_BG_COLOR);
+                }
+
+                if(htmlOutputContainer) htmlOutputContainer.scrollTop = stateToRestore.scrollTop || 0;
+
+                // Reset flags after all updates and async operations
+                isRenderingInternally = false;
+                isUndoRedoInProgress = false;
+                toggleUndoRedoButtons();
+                handleHtmlOutputSelectionChange(); // Update UI elements based on restored selection/state
+            });
+        } catch (error) {
+            console.error("Error during state restoration:", error);
+            // Critical error, try to reset flags to allow normal operation if possible
+            isRenderingInternally = false;
+            isUndoRedoInProgress = false;
+            toggleUndoRedoButtons(); // Update button states even on error
+        }
+    }
+
+
+    function handleUndo() {
+        if (undoStack.length <= 1) {
+            // console.log("Undo: No previous state to revert to.");
+            return;
+        }
+        if (isUndoRedoInProgress) return;
+
+        const stateBeingUndone = undoStack.pop();
+        redoStack.push(stateBeingUndone);
+
+        const stateToRestore = undoStack[undoStack.length - 1];
+        // console.log("Undoing. Restoring state index:", undoStack.length -1);
+        restoreState(stateToRestore);
+    }
+
+    function handleRedo() {
+        if (redoStack.length === 0) {
+            // console.log("Redo: No state to redo.");
+            return;
+        }
+        if (isUndoRedoInProgress) return;
+
+        const stateToRestore = redoStack.pop();
+        undoStack.push(stateToRestore);
+        // console.log("Redoing. Restoring state from redo stack. Undo stack size:", undoStack.length);
+        restoreState(stateToRestore);
+    }
+    // --- END UNDO/REDO SYSTEM ---
+
+    function handleGlobalKeyDown(event) {
+        const activeElem = document.activeElement;
+        const isInputOrTextarea = activeElem && (activeElem.tagName === 'INPUT' || activeElem.tagName === 'TEXTAREA' || activeElem.isContentEditable);
+
+        // More general check: if focus is not on an element that naturally uses Ctrl+Z/Y for its own undo
+        let allowShortcut = true;
+        if (activeElem) {
+            if (activeElem === markdownInput || (activeElem.tagName === 'INPUT' && activeElem.type === 'text') || activeElem.isContentEditable ) {
+                 // For specific inputs/contenteditable, allow their native undo unless it's our main output pane
+                 if (activeElem === htmlOutput && (event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')) {
+                    // This is our contenteditable output, let our system handle it.
+                 } else if (activeElem !== htmlOutput) {
+                    allowShortcut = false; // Let native undo/redo work for other inputs
+                 }
+            }
+        }
+
+
+        if (allowShortcut && (event.ctrlKey || event.metaKey)) {
+            const keyLower = event.key.toLowerCase();
+            if (keyLower === 'z') {
+                event.preventDefault();
+                if (event.shiftKey) {
+                    if (redoBtn && !redoBtn.disabled) handleRedo();
+                } else {
+                    if (undoBtn && !undoBtn.disabled) handleUndo();
+                }
+            } else if (keyLower === 'y') {
+                event.preventDefault();
+                if (redoBtn && !redoBtn.disabled) handleRedo();
+            }
+        }
+    }
+
+    function applySelectedLineSpacing() {
+        if (!outputLineSpacingInput || !htmlOutput) return;
+        isApplyingStyle = true;
+        try {
+            const newSpacingValue = parseFloat(outputLineSpacingInput.value);
+            if (isNaN(newSpacingValue) || newSpacingValue < 0.5 || newSpacingValue > 4) {
+                alert("Line spacing value must be between 0.5 and 4.");
+                handleHtmlOutputSelectionChange(); // Reset input to current actual
+                return;
+            }
+            const newSpacingStyle = newSpacingValue.toString();
+
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                let range = selection.getRangeAt(0);
+                if (range.collapsed && htmlOutput.contains(range.startContainer)) {
+                    let targetElement = range.startContainer;
+                    if (targetElement.nodeType === Node.TEXT_NODE) {
+                        targetElement = targetElement.parentNode;
+                    }
+
+                    let elementToStyle = null;
+                    let currentElement = targetElement;
+                    while (currentElement && htmlOutput.contains(currentElement) && currentElement !== htmlOutput) {
+                        if (currentElement.style && typeof currentElement.style.lineHeight !== 'undefined') {
+                            elementToStyle = currentElement; break;
+                        }
+                        if (['P', 'DIV', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'TD', 'TH'].includes(currentElement.tagName)) {
+                            elementToStyle = currentElement; break;
+                        }
+                        currentElement = currentElement.parentNode;
+                         if (!(currentElement instanceof HTMLElement)) break;
+                    }
+
+                    if (elementToStyle) {
+                        elementToStyle.style.lineHeight = newSpacingStyle;
+                        if (!directHtmlEditsMade) { directHtmlEditsMade = true; htmlOutput.classList.add('direct-edits-active'); }
+                        saveEditorState();
+                        handleHtmlOutputSelectionChange();
+                        return;
+                    } else {
+                         alert("Please select some text (non-collapsed selection) to apply new line spacing, or place cursor within a distinct block (paragraph, list item) to style it.");
+                         return;
+                    }
+                }
+            }
+            // If not collapsed, or if collapsed logic didn't apply/find target
+            if (wrapSelectedTextWithStyledSpan('lineHeight', newSpacingStyle)) {
+                handleHtmlOutputSelectionChange();
+            }
+        } catch(err) {
+            console.error("Error applying line spacing:", err);
+        } finally {
+            isApplyingStyle = false;
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        initializeApp({ renderMd: true, forceLoadFromStorage: true });
+        initializeApp({ renderMd: true, forceLoadFromStorage: true, restoreScroll: false });
+
+        if (undoStack.length === 0 && markdownInput && htmlOutput && htmlOutputContainer) {
+             const trulyInitialState = {
+                markdown: markdownInput.value,
+                html: htmlOutput.innerHTML,
+                scrollTop: 0,
+                directHtmlEditsMade: false,
+                selectedCodeBlockId: null,
+                globalCodeBg: getComputedStyle(document.documentElement).getPropertyValue('--global-code-bg-color').trim() || DEFAULT_CODE_BG_COLOR,
+                globalCodeText: getComputedStyle(document.documentElement).getPropertyValue('--global-code-text-color').trim() || DEFAULT_CODE_TEXT_COLOR,
+                margins: {
+                    top: getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-top').trim(),
+                    bottom: getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-bottom').trim(),
+                    horizontal: getComputedStyle(document.documentElement).getPropertyValue('--a4-margin-horizontal').trim(),
+                },
+                direction: htmlOutputContainer.getAttribute('dir') || 'ltr'
+            };
+            undoStack.push(trulyInitialState);
+            // console.log("Pushed trulyInitialState. Undo stack size:", undoStack.length);
+        }
+        toggleUndoRedoButtons();
     });
 </script>
 </body>
